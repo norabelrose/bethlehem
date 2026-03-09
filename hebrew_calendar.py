@@ -295,9 +295,9 @@ def first_crescent(nm_t):
 # Find all new moons in extended period
 # ─────────────────────────────────────────────────────────────────────────────
 
-print("Finding new moons (Sep 4 BC → Mar 1 AD)…", flush=True)
-t_scan_start = ts.tt(-3, 9, 1)   # Sep 4 BC  (covers Tishri 3758)
-t_scan_end   = ts.tt( 0, 4, 1)   # Apr 1 AD
+print("Finding new moons (Sep 5 BC → Mar 1 BC)…", flush=True)
+t_scan_start = ts.tt(-4, 9, 1)   # Sep 5 BC  (ensures spring 4 BC months exist)
+t_scan_end   = ts.tt( 0, 4, 1)   # Apr 1 BC
 
 phase_times, phase_idx = almanac.find_discrete(
     t_scan_start, t_scan_end, almanac.moon_phases(eph)
@@ -349,6 +349,7 @@ print()
 nisan_starts = {}   # astro_year → index into month_starts[]
 
 SYNODIC = 29.53059   # mean synodic month (days)
+NISAN_WINDOW_DAYS = 40.0  # latest plausible Nisan start after spring equinox
 
 for astro_yr, eq_t in equinoxes.items():
     eq_jd = eq_t.tt
@@ -356,6 +357,11 @@ for astro_yr, eq_t in equinoxes.items():
     # We want: nm_jd + 14.75 >= eq_jd  →  nm_jd >= eq_jd – 14.75
     candidates = []
     for idx, ms in enumerate(month_starts):
+        # Constrain candidates to spring months near this equinox.
+        # Without this bound, an autumn month (e.g., previous Tishri) also
+        # satisfies fm_approx >= eq_jd and can be misidentified as Nisan.
+        if ms["evening_jd"] > eq_jd + NISAN_WINDOW_DAYS:
+            break
         fm_approx = ms["evening_jd"] + 14.75
         if fm_approx >= eq_jd:
             candidates.append((idx, fm_approx))
