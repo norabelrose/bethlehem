@@ -9,6 +9,7 @@ Events detected:
   2. Jupiter–Regulus conjunctions        (three passes)
   3. Jupiter heliacal rising
   4. Jupiter stationary points           (first & second stations)
+  5. Jupiter longitude table (2 BC, fixed heliacal-rising observation time)
 
 Uses JPL DE422 ephemeris via Skyfield (vectorised for speed).
 """
@@ -16,6 +17,7 @@ Uses JPL DE422 ephemeris via Skyfield (vectorised for speed).
 import numpy as np
 from skyfield.api import load, Star, wgs84, N, E
 from skyfield.framelib import ecliptic_frame
+from skyfield import almanac
 
 # ---------------------------------------------------------------------------
 # 0. Ephemeris & bodies
@@ -335,6 +337,66 @@ else:
         print(f"    Date             : {fmt(t_hr, hhmm=True)}")
         print(f"    Ecliptic lon     : {lon_hr:.3f}°")
         print(f"    Solar elongation : {el_hr:.2f}°  (threshold {AV}°)")
+print()
+
+# ---------------------------------------------------------------------------
+# Event 5: Jupiter altitude & azimuth — 2 BC, weekly at fixed 04:38 local time
+# ---------------------------------------------------------------------------
+print(SEP)
+print("EVENT 5: JUPITER ALTITUDE & AZIMUTH — 2 BC, WEEKLY AT 04:38 LOCAL")
+print("Observer : Jerusalem")
+print("Time     : fixed at 04:38 Jerusalem local mean solar time")
+print("           (= time of Jupiter's heliacal rise on 29 Aug 2 BC)")
+print(SEP)
+
+_COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE',
+            'S','SSW','SW','WSW','W','WNW','NW','NNW']
+
+def _compass_pt(az_deg):
+    return _COMPASS[round(az_deg / 22.5) % 16]
+
+_JER_LON = 35.2137   # degrees east
+
+# Find the Jupiter rise on 29 Aug 2 BC to anchor the fixed time
+_f_rise = almanac.risings_and_settings(eph, jup, jerusalem)
+_all_t, _all_ev = almanac.find_discrete(ts.tt(-1, 8, 29), ts.tt(-1, 8, 30), _f_rise)
+
+_aug29_rise_ut1 = None
+for _t, _ev in zip(_all_t, _all_ev):
+    if _ev == 1:
+        _aug29_rise_ut1 = _t.ut1
+        break
+
+if _aug29_rise_ut1 is None:
+    print("  ERROR: Could not locate Jupiter rise near 29 Aug 2 BC.\n")
+else:
+    # Local time sanity check
+    _lf = (_aug29_rise_ut1 + 0.5 + _JER_LON / (15.0 * 24.0)) % 1.0
+    _lh = _lf * 24.0
+    print(f"  Anchored to rise on 29 Aug 2 BC at "
+          f"{int(_lh):02d}:{int((_lh % 1)*60):02d} local\n")
+
+    # Weekly UT1 times: same time-of-day, 7-day steps through end of 2 BC
+    _end_ut1 = ts.tt(0, 1, 1).ut1
+    _n_weeks = int((_end_ut1 - _aug29_rise_ut1) / 7) + 2
+    _obs_ut1 = np.array([_aug29_rise_ut1 + n * 7 for n in range(_n_weeks)])
+    _obs_ut1 = _obs_ut1[_obs_ut1 <= _end_ut1]
+    _obs_times5 = ts.ut1_jd(_obs_ut1)
+
+    # Altitude & azimuth from Jerusalem
+    _app5 = (earth + jerusalem).at(_obs_times5).observe(jup).apparent()
+    _alt5, _az5, _ = _app5.altaz(temperature_C=20, pressure_mbar=1013)
+    _alts5 = _alt5.degrees
+    _azs5  = _az5.degrees
+
+    hdr5 = f"  {'Date':<20}  {'Altitude':>9}  {'Azimuth':>9}  Direction"
+    print(hdr5)
+    print("  " + "—" * (len(hdr5) - 2))
+
+    for i in range(len(_obs_times5)):
+        print(f"  {fmt(_obs_times5[i]):<20}  {_alts5[i]:8.2f}°  "
+              f"{_azs5[i]:8.2f}°  {_compass_pt(_azs5[i])}")
+
 print()
 
 # ---------------------------------------------------------------------------
