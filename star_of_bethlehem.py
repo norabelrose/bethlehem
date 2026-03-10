@@ -148,8 +148,6 @@ print("EVENT 1: JUPITER–VENUS CLOSEST CONJUNCTION")
 print(SEP)
 
 min_idx = int(np.argmin(jv_sep_jer))
-print(f"  Daily minimum on {fmt(times_d[min_idx])}:  "
-      f"{jv_sep_jer[min_idx]*60:.1f}′ (Jerusalem)")
 
 # Zoom ±4 days, 1-minute resolution
 z0 = jd_daily[max(0, min_idx-4)]
@@ -173,19 +171,90 @@ jup_lat_c = ecl_lat_arr(jerusalem, jup, ts.tt_jd(np.array([jd_z[mi_jer]])))[0]
 ven_lat_c = ecl_lat_arr(jerusalem, ven, ts.tt_jd(np.array([jd_z[mi_jer]])))[0]
 elong_c   = elong_arr(jerusalem, jup, ts.tt_jd(np.array([jd_z[mi_jer]])))[0]
 
+def _lst_str(t, lon_deg):
+    """Local mean solar time string (HH:MM) from a Skyfield Time and east longitude."""
+    h = ((t.ut1 + 0.5) % 1.0 * 24.0 + lon_deg / 15.0) % 24.0
+    return f"{int(h):02d}:{int((h % 1) * 60):02d}"
+
+_app_jup_jer = (earth + jerusalem).at(t_jv_jer).observe(jup).apparent()
+_app_ven_jer = (earth + jerusalem).at(t_jv_jer).observe(ven).apparent()
+_alt_jup_jer, _az_jup_jer, _ = _app_jup_jer.altaz(temperature_C=20, pressure_mbar=1013)
+_alt_ven_jer, _az_ven_jer, _ = _app_ven_jer.altaz(temperature_C=20, pressure_mbar=1013)
+
+_app_jup_bab = (earth + babylon).at(t_jv_bab).observe(jup).apparent()
+_app_ven_bab = (earth + babylon).at(t_jv_bab).observe(ven).apparent()
+_alt_jup_bab, _az_jup_bab, _ = _app_jup_bab.altaz(temperature_C=20, pressure_mbar=1013)
+_alt_ven_bab, _az_ven_bab, _ = _app_ven_bab.altaz(temperature_C=20, pressure_mbar=1013)
+
+# 1-arcminute window: bisect the entry and exit threshold crossings
+_1M = 1.0 / 60.0   # 1 arcminute in degrees
+
+def _bisect_sep_crossing(site, bodyA, bodyB, jd_lo, jd_hi, entering):
+    """Bisect to ~6-second precision the moment sep crosses _1M.
+    entering=True: sep goes from above to below threshold (entry).
+    entering=False: sep goes from below to above threshold (exit).
+    """
+    lo, hi = jd_lo, jd_hi
+    for _ in range(50):
+        mid = (lo + hi) / 2
+        s = sep_arr(site, bodyA, bodyB, ts.tt_jd(mid))
+        if (s > _1M) == entering:
+            lo = mid
+        else:
+            hi = mid
+        if (hi - lo) * 1440 < 0.1:
+            break
+    return ts.tt_jd((lo + hi) / 2)
+
+def _1m_window(site, zv):
+    """Return (t_entry, t_exit, dur_min) for the <1' window, or None if none."""
+    below = zv < _1M
+    if not np.any(below):
+        return None
+    i_en = int(np.argmax(below))
+    i_ex = len(below) - 1 - int(np.argmax(below[::-1]))
+    t_en = _bisect_sep_crossing(site, jup, ven,
+                                 jd_z[max(0, i_en - 1)], jd_z[i_en],
+                                 entering=True)
+    t_ex = _bisect_sep_crossing(site, jup, ven,
+                                 jd_z[i_ex], jd_z[min(len(jd_z) - 1, i_ex + 1)],
+                                 entering=False)
+    return t_en, t_ex, (t_ex.tt - t_en.tt) * 1440
+
+_w_jer = _1m_window(jerusalem, zv_jer)
+_w_bab = _1m_window(babylon,   zv_bab)
+
 print()
 print("  From JERUSALEM")
 print(f"    Closest approach : {fmt(t_jv_jer, hhmm=True)}")
+print(f"    Local solar time : {_lst_str(t_jv_jer, 35.2137)}")
 print(f"    Separation       : {zv_jer[mi_jer]*60:.3f}′  "
       f"({zv_jer[mi_jer]:.5f}°)")
 print(f"    Jupiter ecl lon  : {jup_lon_c:.3f}°   lat: {jup_lat_c:+.3f}°")
 print(f"    Venus   ecl lon  : {ven_lon_c:.3f}°   lat: {ven_lat_c:+.3f}°")
 print(f"    Jupiter elong    : {elong_c:.2f}° from Sun")
+print(f"    Altitude at conjunction:")
+print(f"      Jupiter : alt {_alt_jup_jer.degrees:+6.2f}°   az {_az_jup_jer.degrees:6.2f}°")
+print(f"      Venus   : alt {_alt_ven_jer.degrees:+6.2f}°   az {_az_ven_jer.degrees:6.2f}°")
+if _w_jer:
+    print(f"    Within 1′ of separation:")
+    print(f"      Enter : {fmt(_w_jer[0], hhmm=True)}  (local {_lst_str(_w_jer[0], 35.2137)})")
+    print(f"      Leave : {fmt(_w_jer[1], hhmm=True)}  (local {_lst_str(_w_jer[1], 35.2137)})")
+    print(f"      Duration: {_w_jer[2]:.1f} min")
 print()
 print("  From BABYLON")
 print(f"    Closest approach : {fmt(t_jv_bab, hhmm=True)}")
+print(f"    Local solar time : {_lst_str(t_jv_bab, 44.4215)}")
 print(f"    Separation       : {zv_bab[mi_bab]*60:.3f}′  "
       f"({zv_bab[mi_bab]:.5f}°)")
+print(f"    Altitude at conjunction:")
+print(f"      Jupiter : alt {_alt_jup_bab.degrees:+6.2f}°   az {_az_jup_bab.degrees:6.2f}°")
+print(f"      Venus   : alt {_alt_ven_bab.degrees:+6.2f}°   az {_az_ven_bab.degrees:6.2f}°")
+if _w_bab:
+    print(f"    Within 1′ of separation:")
+    print(f"      Enter : {fmt(_w_bab[0], hhmm=True)}  (local {_lst_str(_w_bab[0], 44.4215)})")
+    print(f"      Leave : {fmt(_w_bab[1], hhmm=True)}  (local {_lst_str(_w_bab[1], 44.4215)})")
+    print(f"      Duration: {_w_bab[2]:.1f} min")
 print()
 
 # ---------------------------------------------------------------------------
