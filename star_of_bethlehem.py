@@ -400,7 +400,93 @@ else:
 print()
 
 # ---------------------------------------------------------------------------
-# 6. Formatted position table (every 10 days)
+# Event 6: Jupiter alt/az — weekly, fixed interval before sunrise
+#          Interval = (sunrise on 29 Aug 2 BC) − (04:38 local on that day)
+# ---------------------------------------------------------------------------
+print(SEP)
+print("EVENT 6: JUPITER ALT/AZ — WEEKLY, FIXED INTERVAL BEFORE SUNRISE")
+print("Observer : Jerusalem")
+print("Anchor   : interval between 04:38 local and sunrise on 29 Aug 2 BC,")
+print("           applied before each week's sunrise thereafter")
+print(SEP)
+
+# Find all sunrises from 29 Aug 2 BC through 1 Jan 1 BC
+_f_sr6 = almanac.risings_and_settings(eph, sun, jerusalem)
+_sr6_t, _sr6_ev = almanac.find_discrete(
+    ts.tt(-1, 8, 28), ts.tt(0, 1, 2), _f_sr6
+)
+_sunrises6 = np.array([
+    _t.ut1 for _t, _ev in zip(_sr6_t, _sr6_ev) if _ev == 1
+])  # UT1 JDs of every sunrise
+
+# Locate 29 Aug 2 BC sunrise
+_s6_start = ts.tt(-1, 8, 29).ut1
+_s6_end   = ts.tt(-1, 8, 30).ut1
+_aug29_sr6 = next(
+    (s for s in _sunrises6 if _s6_start <= s < _s6_end), None
+)
+
+if _aug29_sr6 is None:
+    print("  ERROR: Could not find sunrise on 29 Aug 2 BC.\n")
+else:
+    def _local_h(jd_ut1):
+        """UT1 JD → local mean solar time in hours (Jerusalem)."""
+        return (((jd_ut1 + 0.5) % 1.0) * 24.0 + _JER_LON / 15.0) % 24.0
+
+    # Sunrise and 04:38 in local hours on 29 Aug
+    _sr6_local   = _local_h(_aug29_sr6)
+    _anchor_local = 4 + 38 / 60.0          # 04:38
+    _offset6_days = (_sr6_local - _anchor_local) / 24.0  # positive = before sunrise
+
+    print(f"  Sunrise on 29 Aug 2 BC  : "
+          f"{int(_sr6_local):02d}:{int((_sr6_local % 1)*60):02d} local")
+    print(f"  Observation time anchor : 04:38 local")
+    print(f"  Fixed interval          : {_offset6_days * 24 * 60:.1f} min before sunrise\n")
+
+    # Build weekly observation times
+    _w_end_ut1 = ts.tt(0, 1, 1).ut1
+    _n_weeks6  = int((_w_end_ut1 - _s6_start) / 7) + 2
+
+    _week_obs_ut1 = []
+    _week_sr_ut1  = []
+    for _w in range(_n_weeks6):
+        _wjd = _s6_start + _w * 7
+        if _wjd > _w_end_ut1:
+            break
+        # Nearest sunrise at or after the weekly mark
+        _idx = int(np.searchsorted(_sunrises6, _wjd))
+        if _idx >= len(_sunrises6):
+            break
+        _sr = _sunrises6[_idx]
+        _week_sr_ut1.append(_sr)
+        _week_obs_ut1.append(_sr - _offset6_days)
+
+    _obs6_times = ts.ut1_jd(np.array(_week_obs_ut1))
+
+    # Jupiter alt/az
+    _app6 = (earth + jerusalem).at(_obs6_times).observe(jup).apparent()
+    _alt6, _az6, _ = _app6.altaz(temperature_C=20, pressure_mbar=1013)
+    _alts6 = _alt6.degrees
+    _azs6  = _az6.degrees
+
+    hdr6 = (f"  {'Date':<20}  {'Obs (local)':>11}  "
+            f"{'Sunrise':>8}  {'Altitude':>9}  {'Azimuth':>9}  Direction")
+    print(hdr6)
+    print("  " + "—" * (len(hdr6) - 2))
+
+    for i in range(len(_obs6_times)):
+        _obs_lh = _local_h(_week_obs_ut1[i])
+        _sr_lh  = _local_h(_week_sr_ut1[i])
+        print(f"  {fmt(_obs6_times[i]):<20}  "
+              f"{int(_obs_lh):02d}:{int((_obs_lh % 1)*60):02d}        "
+              f"{int(_sr_lh):02d}:{int((_sr_lh % 1)*60):02d}   "
+              f"{_alts6[i]:8.2f}°  "
+              f"{_azs6[i]:8.2f}°  {_compass_pt(_azs6[i])}")
+
+print()
+
+# ---------------------------------------------------------------------------
+# 7. Formatted position table (every 10 days)
 # ---------------------------------------------------------------------------
 print(SEP)
 print("POSITION TABLE — every 10 days, Jerusalem observer")
