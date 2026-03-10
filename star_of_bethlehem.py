@@ -187,10 +187,11 @@ _alt_jup_bab, _az_jup_bab, _ = _app_jup_bab.altaz(temperature_C=20, pressure_mba
 _alt_ven_bab, _az_ven_bab, _ = _app_ven_bab.altaz(temperature_C=20, pressure_mbar=1013)
 
 # 1-arcminute window: bisect the entry and exit threshold crossings
-_1M = 1.0 / 60.0   # 1 arcminute in degrees
+_1M   = 1.0 / 60.0   # 1 arcminute in degrees
+_JV_WINDOW = 6 * _1M    # 6 arcminutes = 0.1° window for "close" conjunctions
 
-def _bisect_sep_crossing(site, bodyA, bodyB, jd_lo, jd_hi, entering):
-    """Bisect to ~6-second precision the moment sep crosses _1M.
+def _bisect_sep_crossing(site, bodyA, bodyB, jd_lo, jd_hi, entering, threshold=_1M):
+    """Bisect to ~6-second precision the moment sep crosses threshold.
     entering=True: sep goes from above to below threshold (entry).
     entering=False: sep goes from below to above threshold (exit).
     """
@@ -198,7 +199,7 @@ def _bisect_sep_crossing(site, bodyA, bodyB, jd_lo, jd_hi, entering):
     for _ in range(50):
         mid = (lo + hi) / 2
         s = sep_arr(site, bodyA, bodyB, ts.tt_jd(mid))
-        if (s > _1M) == entering:
+        if (s > threshold) == entering:
             lo = mid
         else:
             hi = mid
@@ -221,8 +222,25 @@ def _1m_window(site, zv):
                                  entering=False)
     return t_en, t_ex, (t_ex.tt - t_en.tt) * 1440
 
+def _deg_window(site, jv_sep_daily):
+    """Return (t_entry, t_exit, dur_days) for the <0.5° window using daily array."""
+    below = jv_sep_daily < _JV_WINDOW
+    if not np.any(below):
+        return None
+    i_en = int(np.argmax(below))
+    i_ex = len(below) - 1 - int(np.argmax(below[::-1]))
+    t_en = _bisect_sep_crossing(site, jup, ven,
+                                 jd_daily[max(0, i_en - 1)], jd_daily[i_en],
+                                 entering=True, threshold=_JV_WINDOW)
+    t_ex = _bisect_sep_crossing(site, jup, ven,
+                                 jd_daily[i_ex], jd_daily[min(n_days - 1, i_ex + 1)],
+                                 entering=False, threshold=_JV_WINDOW)
+    return t_en, t_ex, t_ex.tt - t_en.tt
+
 _w_jer = _1m_window(jerusalem, zv_jer)
 _w_bab = _1m_window(babylon,   zv_bab)
+_d_jer = _deg_window(jerusalem, jv_sep_jer)
+_d_bab = _deg_window(babylon,   jv_sep_bab)
 
 print()
 print("  From JERUSALEM")
@@ -236,6 +254,11 @@ print(f"    Jupiter elong    : {elong_c:.2f}° from Sun")
 print(f"    Altitude at conjunction:")
 print(f"      Jupiter : alt {_alt_jup_jer.degrees:+6.2f}°   az {_az_jup_jer.degrees:6.2f}°")
 print(f"      Venus   : alt {_alt_ven_jer.degrees:+6.2f}°   az {_az_ven_jer.degrees:6.2f}°")
+if _d_jer:
+    print(f"    Within {_JV_WINDOW}° of separation:")
+    print(f"      Enter : {fmt(_d_jer[0], hhmm=True)}  (local {_lst_str(_d_jer[0], 35.2137)})")
+    print(f"      Leave : {fmt(_d_jer[1], hhmm=True)}  (local {_lst_str(_d_jer[1], 35.2137)})")
+    print(f"      Duration: {_d_jer[2]:.2f} days")
 if _w_jer:
     print(f"    Within 1′ of separation:")
     print(f"      Enter : {fmt(_w_jer[0], hhmm=True)}  (local {_lst_str(_w_jer[0], 35.2137)})")
@@ -250,6 +273,11 @@ print(f"    Separation       : {zv_bab[mi_bab]*60:.3f}′  "
 print(f"    Altitude at conjunction:")
 print(f"      Jupiter : alt {_alt_jup_bab.degrees:+6.2f}°   az {_az_jup_bab.degrees:6.2f}°")
 print(f"      Venus   : alt {_alt_ven_bab.degrees:+6.2f}°   az {_az_ven_bab.degrees:6.2f}°")
+if _d_bab:
+    print(f"    Within {_JV_WINDOW}° of separation:")
+    print(f"      Enter : {fmt(_d_bab[0], hhmm=True)}  (local {_lst_str(_d_bab[0], 44.4215)})")
+    print(f"      Leave : {fmt(_d_bab[1], hhmm=True)}  (local {_lst_str(_d_bab[1], 44.4215)})")
+    print(f"      Duration: {_d_bab[2]:.2f} days")
 if _w_bab:
     print(f"    Within 1′ of separation:")
     print(f"      Enter : {fmt(_w_bab[0], hhmm=True)}  (local {_lst_str(_w_bab[0], 44.4215)})")
