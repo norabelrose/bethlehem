@@ -327,10 +327,10 @@ for idx in jr_minima:
 
     print()
     print(f"  Conjunction near {fmt(times_d[idx])}:")
-    print(f"    From JERUSALEM : {fmt(tz2[mi2_jer], hhmm=True)}")
+    print(f"    From JERUSALEM : {fmt(tz2[mi2_jer], hhmm=True)}  (local {_lst_str(tz2[mi2_jer], 35.2137)})")
     print(f"      Separation   : {zr_jer[mi2_jer]*60:.2f}′  ({motion_str})")
     print(f"      Jupiter lon  : {jl:.3f}°   lat: {jla:+.3f}°  (Regulus lon: {rl:.3f}°)")
-    print(f"    From BABYLON   : {fmt(tz2[mi2_bab], hhmm=True)}")
+    print(f"    From BABYLON   : {fmt(tz2[mi2_bab], hhmm=True)}  (local {_lst_str(tz2[mi2_bab], 44.4215)})")
     print(f"      Separation   : {zr_bab[mi2_bab]*60:.2f}′")
 print()
 
