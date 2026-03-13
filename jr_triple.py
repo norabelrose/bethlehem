@@ -40,7 +40,7 @@ import argparse
 import sys
 import numpy as np
 from skyfield.api import load, Star, wgs84, N, E
-from skyfield.framelib import ecliptic_frame
+from skyfield.framelib import ecliptic_J2000_frame as ecliptic_frame
 
 # ── City database ──────────────────────────────────────────────────────────────
 CITIES = {
@@ -175,6 +175,90 @@ def geo_jup_ecl(jd_val: float):
     lat, lon, _ = a.frame_latlon(ecliptic_frame)
     return float(lon.degrees[0]), float(lat.degrees[0])
 
+# ── Zodiac helpers ─────────────────────────────────────────────────────────────
+# Fagan-Bradley ayanamsa: offset from J2000.0 ecliptic to Babylonian sidereal.
+# Both frames are inertial/fixed, so this constant offset is valid for all dates.
+# We use ecliptic_J2000_frame throughout, so coordinates are always J2000.0.
+# Cross-check: Regulus at 149.8° J2000.0 → 125.1° Babylonian = 5° Leo ✓
+#              Spica  at 203.9° J2000.0 → 179.1° Babylonian = 29° Virgo ✓
+BABYLONIAN_AYANAMSA = 24.74  # degrees
+
+ZODIAC_SIGNS = [
+    (  0,  30, "Aries"),       ( 30,  60, "Taurus"),
+    ( 60,  90, "Gemini"),      ( 90, 120, "Cancer"),
+    (120, 150, "Leo"),         (150, 180, "Virgo"),
+    (180, 210, "Libra"),       (210, 240, "Scorpius"),
+    (240, 270, "Sagittarius"), (270, 300, "Capricorn"),
+    (300, 330, "Aquarius"),    (330, 360, "Pisces"),
+]
+
+def zodiac_sign(j2000_lon_deg: float) -> tuple:
+    """Return (sign_name, babylonian_lon) for a J2000.0 ecliptic longitude."""
+    bab_lon = (j2000_lon_deg - BABYLONIAN_AYANAMSA) % 360
+    for lo, hi, name in ZODIAC_SIGNS:
+        if lo <= bab_lon < hi:
+            return name, bab_lon
+    return "Pisces", bab_lon
+
+def get_sun_lon_vec(jd_arr: np.ndarray) -> np.ndarray:
+    """Geocentric ecliptic longitude of the Sun (vectorised)."""
+    t = ts.tt_jd(jd_arr)
+    a = earth.at(t).observe(sun).apparent()
+    _, lon, _ = a.frame_latlon(ecliptic_frame)
+    return lon.degrees
+
+def geo_elong_vec(jd_arr: np.ndarray) -> np.ndarray:
+    """Solar elongation of Jupiter (vectorised)."""
+    t  = ts.tt_jd(jd_arr)
+    aJ = earth.at(t).observe(jup).apparent()
+    aS = earth.at(t).observe(sun).apparent()
+    return aJ.separation_from(aS).degrees
+
+
+def find_heliacal_rising(jd_ref: float) -> tuple:
+    """
+    Find the most recent heliacal rising of Jupiter strictly before jd_ref.
+
+    Strategy:
+      1. Scan backward from jd_ref to find the most recent superior
+         conjunction (local minimum of elongation with elong < 10°).
+         Backward scan guarantees we find the immediately preceding
+         conjunction, not one from an earlier synodic period.
+      2. From that conjunction, scan forward day by day; return the first
+         day on which Jupiter is in the morning sky (west of Sun) with
+         geocentric elongation ≥ HELIACAL_THRESHOLD.
+
+    Returns (jd_rising, jup_lon_j2000_degrees) or (None, None).
+    """
+    HELIACAL_THRESHOLD = 12.0   # degrees
+
+    jd_start = max(jd_ref - 800, JD_START)
+    jd_scan  = np.arange(jd_start, jd_ref, 1.0)
+    if len(jd_scan) < 3:
+        return None, None
+
+    elong   = geo_elong_vec(jd_scan)
+    jup_lon = geo_jup_lon(jd_scan)
+    sun_lon = get_sun_lon_vec(jd_scan)
+    morning = ((jup_lon - sun_lon) % 360) > 180   # Jupiter west of Sun
+
+    # Backward scan: find the last local elongation minimum = last conjunction
+    last_conj_idx = None
+    for i in range(len(jd_scan) - 2, 0, -1):
+        if elong[i] < elong[i - 1] and elong[i] < elong[i + 1] and elong[i] < 10.0:
+            last_conj_idx = i
+            break
+
+    if last_conj_idx is None:
+        return None, None
+
+    # Forward scan: first morning day with enough elongation
+    for i in range(last_conj_idx, len(jd_scan)):
+        if morning[i] and elong[i] >= HELIACAL_THRESHOLD:
+            return float(jd_scan[i]), float(jup_lon[i])
+
+    return None, None
+
 # ── Closest-approach refinement ────────────────────────────────────────────────
 def closest_approach(jd_lo: float, jd_hi: float) -> tuple:
     """
@@ -303,6 +387,7 @@ print("(Events appear below as they are found)\n", flush=True)
 DIVIDER = "═" * 72
 
 found = 0
+heliacal_signs = []   # zodiac sign of each preceding heliacal rising
 
 for k in range(len(windows) - 2):
     m1, lo1, hi1 = windows[k]
@@ -369,6 +454,17 @@ for k in range(len(windows) - 2):
     print(f"      Hit 1:  lon {lon1:.2f}°   lat {lat1:+.3f}°")
     print(f"      Hit 2:  lon {lon2:.2f}°   lat {lat2:+.3f}°")
     print(f"      Hit 3:  lon {lon3:.2f}°   lat {lat3:+.3f}°")
+    print()
+    jd_hr, hr_lon = find_heliacal_rising(jd1)
+    if jd_hr is not None:
+        t_hr = ts.tt_jd(jd_hr)
+        sign, bab_lon = zodiac_sign(hr_lon)
+        heliacal_signs.append(sign)
+        print(f"    Preceding Jupiter heliacal rising:")
+        print(f"      Date  :  {fmt(t_hr)}")
+        print(f"      Zodiac:  {sign}  ({bab_lon:.1f}° Babylonian sidereal)")
+    else:
+        print(f"    Preceding Jupiter heliacal rising:  not found in search window")
     print(DIVIDER, flush=True)
 
 # ── Summary ────────────────────────────────────────────────────────────────────
@@ -376,4 +472,20 @@ print()
 print(f"TOTAL Jupiter–Regulus triple conjunctions"
       f" (threshold {THRESHOLD}°, {era(args.start)}–{era(args.end)}): {found}")
 print(f"  Ephemeris : DE422  (~{total_days // 365} years scanned)")
+
+if heliacal_signs:
+    print()
+    print("Zodiac sign of preceding Jupiter heliacal rising:")
+    from collections import Counter
+    counts = Counter(heliacal_signs)
+    total_hr = len(heliacal_signs)
+    sign_order = [name for _, _, name in ZODIAC_SIGNS]
+    for name in sign_order:
+        n = counts.get(name, 0)
+        if n == 0:
+            continue
+        bar = "█" * n
+        print(f"  {name:<13}  {n:>5}  ({100 * n / total_hr:5.1f}%)  {bar}")
+    print(f"  {'(not found)':<13}  {found - total_hr:>5}  ({100 * (found - total_hr) / found:5.1f}%)")
+
 print()

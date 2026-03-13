@@ -62,9 +62,52 @@ Intercalation uncertainty (whether the Sanhedrin actually intercalated in a
 given year) is noted where the decision was close.
 """
 
+import argparse
 import numpy as np
 from skyfield.api import load, wgs84, N, E
 from skyfield import almanac
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CLI
+# ─────────────────────────────────────────────────────────────────────────────
+
+LOCATIONS = {
+    "jerusalem": ("Jerusalem",          31.7683,  35.2137),
+    "avaris":    ("Avaris (Tell el-Dabʿa)", 30.787, 31.823),
+    "babylon":   ("Babylon",            32.5364,  44.4208),
+}
+
+def parse_args():
+    p = argparse.ArgumentParser(
+        description="Reconstruct the observation-based Hebrew lunisolar calendar.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Years use astronomical year numbering:
+  3 BC = -2,  2 BC = -1,  1 BC = 0,  1 AD = 1,  2 AD = 2, ...
+  3 AD = 3,   etc.
+
+Examples:
+  python hebrew_calendar.py                           # default: -3 to 0 (4 BC – 1 BC)
+  python hebrew_calendar.py --start -5 --end 0
+  python hebrew_calendar.py --location babylon
+  python hebrew_calendar.py --location avaris --start -5 --end 0
+""",
+    )
+    p.add_argument(
+        "--start", type=int, default=-3, metavar="ASTRO_YEAR",
+        help="first equinox year to include (astronomical, default: -3 = 4 BC)",
+    )
+    p.add_argument(
+        "--end", type=int, default=0, metavar="ASTRO_YEAR",
+        help="last equinox year to include (astronomical, default: 0 = 1 BC)",
+    )
+    p.add_argument(
+        "--location", choices=LOCATIONS.keys(), default="jerusalem",
+        help="observation site (default: jerusalem)",
+    )
+    return p.parse_args()
+
+ARGS = parse_args()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Setup
@@ -75,8 +118,9 @@ sun   = eph["sun"]
 moon  = eph["moon"]
 earth = eph["earth"]
 
-jerusalem = wgs84.latlon(31.7683 * N, 35.2137 * E)
-observer  = earth + jerusalem
+_loc_name, _loc_lat, _loc_lon = LOCATIONS[ARGS.location]
+obs_site = wgs84.latlon(_loc_lat * N, _loc_lon * E)
+observer = earth + obs_site
 
 MONTHS_GR = ["Jan","Feb","Mar","Apr","May","Jun",
              "Jul","Aug","Sep","Oct","Nov","Dec"]
@@ -142,25 +186,25 @@ def _crossing_time(body, target_alt, jd_start, jd_end, rising=False):
     return None
 
 # NOTE on JD convention: floor(JD) is *noon* TT of that Julian Day.
-# Jerusalem sunset (ΔT≈3.5h, so UT≈TT-3.5h) occurs at roughly:
-#   Sep: ~15:30 UT → ~19:00 TT → floor(JD) + 0.29 days after noon
-#   Dec: ~14:30 UT → ~18:00 TT → floor(JD) + 0.25 days after noon
-# So we search from floor(JD)+0.10 to floor(JD)+0.45 to bracket all seasons.
+# Jerusalem sunset in TT depends strongly on ΔT: for 3 BC (ΔT≈3.5h) it falls
+# near d0+0.28, but for 1200 BC (ΔT≈10.3h) it falls near d0+0.58, and for
+# earlier dates it can exceed d0+1.0. We therefore search a full 1.5-day window
+# starting at noon TT. Because we look only for *descending* crossings of 0°,
+# the function naturally skips any morning sunrise and returns the correct sunset.
 
 def find_sunset(date_jd: float):
     """Sunset TT on the evening of the Julian Day containing date_jd."""
     d0 = np.floor(date_jd)
-    return _crossing_time(sun, 0.0, d0 + 0.10, d0 + 0.48, rising=False)
+    return _crossing_time(sun, 0.0, d0, d0 + 1.5, rising=False)
 
 def find_sun_at_minus5(date_jd: float):
     """When sun descends through –5° on the evening of date_jd."""
     d0 = np.floor(date_jd)
-    return _crossing_time(sun, -5.0, d0 + 0.12, d0 + 0.52, rising=False)
+    return _crossing_time(sun, -5.0, d0, d0 + 1.5, rising=False)
 
-def find_moonset(date_jd: float):
-    """First moonset after noon TT on date_jd."""
-    d0 = np.floor(date_jd)
-    return _crossing_time(moon, 0.0, d0 + 0.15, d0 + 0.80, rising=False)
+def find_moonset(after_jd: float):
+    """First moonset at or after after_jd (a TT JD, e.g. sunset time)."""
+    return _crossing_time(moon, 0.0, after_jd - 0.01, after_jd + 0.35, rising=False)
 
 def spring_equinox(astro_year: int):
     """Return the spring equinox time for an astronomical year."""
@@ -254,7 +298,7 @@ def first_crescent(nm_t):
 
         # Lag time (moonset – sunset)
         t_ss = find_sunset(cand_jd)
-        t_ms = find_moonset(cand_jd)
+        t_ms = find_moonset(t_ss.tt) if t_ss is not None else None
         lag_min = (t_ms.tt - t_ss.tt) * 1440 if (t_ms is not None and t_ss is not None) else 0.0
 
         rec = {
@@ -295,14 +339,18 @@ def first_crescent(nm_t):
 # Find all new moons in extended period
 # ─────────────────────────────────────────────────────────────────────────────
 
-print("Finding new moons (Sep 5 BC → Mar 1 BC)…", flush=True)
-t_scan_start = ts.tt(-4, 9, 1)   # Sep 5 BC  (ensures spring 4 BC months exist)
-t_scan_end   = ts.tt( 0, 4, 1)   # Apr 1 BC
+_scan_y0 = ARGS.start - 1   # need Nisan of ARGS.start-1 to label the first complete year
+_scan_y1 = ARGS.end   + 1   # need Nisan of ARGS.end+1  to label the last  complete year
+print(f"Finding new moons ({era(_scan_y0)} Feb → {era(_scan_y1)} Oct)…", flush=True)
+t_scan_start = ts.tt(_scan_y0, 2, 1)   # Feb: early enough to catch any March/April Nisan
+t_scan_end   = ts.tt(_scan_y1, 10, 1)  # Oct: late enough to capture Elul (Aug/Sep) of last year
 
 phase_times, phase_idx = almanac.find_discrete(
     t_scan_start, t_scan_end, almanac.moon_phases(eph)
 )
-new_moons = phase_times[phase_idx == 0]
+new_moons  = phase_times[phase_idx == 0]
+full_moons = phase_times[phase_idx == 2]
+full_moon_jds = full_moons.tt   # numpy array of TT JDs
 print(f"  Found {len(new_moons)} new moons.\n")
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -338,7 +386,7 @@ print()
 
 print("Computing spring equinoxes…", flush=True)
 equinoxes = {}
-for astro_yr in range(-3, 1):    # 4 BC, 3 BC, 2 BC, 1 BC
+for astro_yr in range(ARGS.start - 1, ARGS.end + 2):  # one extra year each side for complete years
     eq = spring_equinox(astro_yr)
     if eq is not None:
         equinoxes[astro_yr] = eq
@@ -484,22 +532,52 @@ for mi in sorted(name_map.keys()):
         "note": ms["note"],
     })
 
+# Compute month lengths (days until next month start)
+for i in range(len(calendar) - 1):
+    calendar[i]["days"] = round(calendar[i+1]["evening_jd"] - calendar[i]["evening_jd"])
+calendar[-1]["days"] = None   # last month in list has no successor
+
+# Match each month to its full moon
+for entry in calendar:
+    ev_jd  = entry["evening_jd"]
+    window = entry["days"] if entry["days"] is not None else 17
+    mask   = (full_moon_jds >= ev_jd) & (full_moon_jds < ev_jd + window)
+    hits   = np.where(mask)[0]
+    if len(hits):
+        fm_jd = full_moon_jds[hits[0]]
+        fm_t  = ts.tt_jd(fm_jd)
+        entry["fm_hday"]    = int(fm_jd - ev_jd) + 1
+        lon_offset_h        = _loc_lon / 15.0
+        ut1_h               = (fm_t.ut1 % 1) * 24
+        entry["fm_local_h"] = (ut1_h + lon_offset_h) % 24
+    else:
+        entry["fm_hday"]    = None
+        entry["fm_local_h"] = None
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Print calendar
 # ─────────────────────────────────────────────────────────────────────────────
 
-SEP = "=" * 90
+SEP = "=" * 117
 
 print(SEP)
-print("OBSERVATION-BASED HEBREW CALENDAR  ·  ~4 BC – 1 BC")
+print(f"OBSERVATION-BASED HEBREW CALENDAR  ·  ~{era(ARGS.start)} – {era(ARGS.end)}  ·  Observer: {_loc_name}")
 print("All dates proleptic Gregorian (evening of first crescent sighting).")
 print("Jewish day begins at that sunset; Western date of same civil day is one day later.")
 print(SEP)
 print()
 
+# Only show AM years that fall within the requested range.
+# Nisan(ARGS.start) is the first requested equinox and sits in AM ARGS.start+3760.
+# Tishri(ARGS.end) starts AM ARGS.end+3761, the last year fully covered.
+_am_first = ARGS.start + 3760
+_am_last  = ARGS.end  + 3761
+
 # Group by AM year
 current_am = None
 for row in calendar:
+    if not (_am_first <= row["am_yr"] <= _am_last):
+        continue
     # Section header for new Jewish year
     if row["am_yr"] != current_am:
         current_am = row["am_yr"]
@@ -510,9 +588,10 @@ for row in calendar:
               f"({era(astro_yr)} / {era(astro_yr+1)}) ──")
         print()
         print(f"  {'Month':<14} {'Evening of first crescent':>26}  "
+              f"{'Full moon (d  LST)':>18}  "
               f"{'Cat':>3}  {'q':>6}  {'ARCL':>6}  {'ARCV':>6}  "
-              f"{'W′':>5}  {'Age(h)':>7}  {'Lag′':>5}  Note")
-        print("  " + "─"*86)
+              f"{'W′':>5}  {'Age(h)':>7}  {'Lag′':>5}")
+        print("  " + "─"*104)
 
     # Error bar string
     eb = "±1d" if row["uncertain"] else "   "
@@ -526,7 +605,12 @@ for row in calendar:
     elif row["hname"] == "Adar II":
         special = " ← intercalary month (leap year)"
 
+    if row["fm_hday"] is not None:
+        fm_str = f"d{row['fm_hday']:2d}  {row['fm_local_h']:5.2f}h LST"
+    else:
+        fm_str = "        ??       "
     print(f"  1 {row['hname']:<12} {row['greg_str']:>26}  "
+          f"{fm_str:>18}  "
           f"{row['cat']:>3}  "
           f"{row['q']:>6.3f}  "
           f"{row['arcl']:>6.2f}°  "
@@ -568,7 +652,7 @@ Error bars:
   This shifts all UTC times by ~3.5 h relative to TT but rarely moves a
   crescent sighting across an evening boundary.
 
-Observer: Jerusalem (31.7683°N, 35.2137°E), sea level.
+Observer: {_loc_name} ({_loc_lat:.4f}°N, {_loc_lon:.4f}°E), sea level.
 Ephemeris: JPL DE422.
 """)
 
@@ -576,44 +660,43 @@ Ephemeris: JPL DE422.
 # Cross-reference: key events from star_of_bethlehem.py
 # ─────────────────────────────────────────────────────────────────────────────
 
-print(SEP)
-print("KEY ASTRONOMICAL EVENTS AND THEIR HEBREW CALENDAR DATES")
-print(SEP)
-print()
+if ARGS.start <= -2 and ARGS.end >= -1:
+    print(SEP)
+    print("KEY ASTRONOMICAL EVENTS AND THEIR HEBREW CALENDAR DATES")
+    print(SEP)
+    print()
 
-events = [
-    ("Jupiter heliacal rising",           ts.tt(-2, 7, 28)),
-    ("1st Jupiter–Regulus conjunction",   ts.tt(-2, 9, 11)),
-    ("2nd Jupiter–Regulus conjunction",   ts.tt(-1, 2, 16)),
-    ("3rd Jupiter–Regulus conjunction",   ts.tt(-1, 5,  6)),
-    ("Jupiter–Venus conjunction",         ts.tt(-1, 6, 15)),
-    ("Jupiter heliacal rising",           ts.tt(-1, 8, 29)),
-    ("Jupiter 1st station (retrograde)",  ts.tt(-1, 12, 25)),
-]
+    events = [
+        ("Jupiter heliacal rising",           ts.tt(-2, 7, 28)),
+        ("1st Jupiter–Regulus conjunction",   ts.tt(-2, 9, 11)),
+        ("2nd Jupiter–Regulus conjunction",   ts.tt(-1, 2, 16)),
+        ("3rd Jupiter–Regulus conjunction",   ts.tt(-1, 5,  6)),
+        ("Jupiter–Venus conjunction",         ts.tt(-1, 6, 15)),
+        ("Jupiter heliacal rising",           ts.tt(-1, 8, 29)),
+        ("Jupiter 1st station (retrograde)",  ts.tt(-1, 12, 25)),
+    ]
 
-def hebrew_date_for_jd(event_jd, calendar):
-    """Find which Hebrew month/day an event falls in."""
-    # Find the month whose evening_jd is <= event_jd and next month's > event_jd
-    for i in range(len(calendar)-1):
-        start = calendar[i]["evening_jd"]
-        nxt   = calendar[i+1]["evening_jd"]
-        if start <= event_jd < nxt:
-            day_num = int(event_jd - start) + 1
-            return calendar[i]["hname"], calendar[i]["am_yr"], day_num
-    # Last month
-    if calendar and event_jd >= calendar[-1]["evening_jd"]:
-        day_num = int(event_jd - calendar[-1]["evening_jd"]) + 1
-        return calendar[-1]["hname"], calendar[-1]["am_yr"], day_num
-    return None, None, None
+    def hebrew_date_for_jd(event_jd, calendar):
+        """Find which Hebrew month/day an event falls in."""
+        for i in range(len(calendar)-1):
+            start = calendar[i]["evening_jd"]
+            nxt   = calendar[i+1]["evening_jd"]
+            if start <= event_jd < nxt:
+                day_num = int(event_jd - start) + 1
+                return calendar[i]["hname"], calendar[i]["am_yr"], day_num
+        if calendar and event_jd >= calendar[-1]["evening_jd"]:
+            day_num = int(event_jd - calendar[-1]["evening_jd"]) + 1
+            return calendar[-1]["hname"], calendar[-1]["am_yr"], day_num
+        return None, None, None
 
-for label, t_event in events:
-    ev_jd = t_event.tt
-    hmo, am_yr, hday = hebrew_date_for_jd(ev_jd, calendar)
-    greg_str = fmt_date(t_event)
-    if hmo:
-        print(f"  {label:<40} {greg_str}  →  "
-              f"{hday} {hmo} AM {am_yr}")
-    else:
-        print(f"  {label:<40} {greg_str}  →  (outside computed range)")
+    for label, t_event in events:
+        ev_jd = t_event.tt
+        hmo, am_yr, hday = hebrew_date_for_jd(ev_jd, calendar)
+        greg_str = fmt_date(t_event)
+        if hmo:
+            print(f"  {label:<40} {greg_str}  →  "
+                  f"{hday} {hmo} AM {am_yr}")
+        else:
+            print(f"  {label:<40} {greg_str}  →  (outside computed range)")
 
-print()
+    print()
