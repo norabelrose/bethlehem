@@ -35,6 +35,7 @@ Three tiers are reported:
   SPECULATIVE: requires |δ| ≤ SIGMA_2 (±1 h, ±15° lon)
 """
 
+import argparse
 import numpy as np
 from skyfield.api import load, wgs84, N, E
 from skyfield import eclipselib
@@ -218,6 +219,19 @@ def bisect_joint(observer, sun_body, moon_body, ts, lo_tt, hi_tt, rising):
 # ---------------------------------------------------------------------------
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Find selenelions (horizontal eclipses) visible from Gibeon.")
+    parser.add_argument("--start", type=int, default=1253, metavar="BC_YEAR",
+                        help="Start year in BC (default: 1253)")
+    parser.add_argument("--end",   type=int, default=1175, metavar="BC_YEAR",
+                        help="End year in BC, exclusive (default: 1175)")
+    args = parser.parse_args()
+
+    # Convert BC years to astronomical years (1 BC = 0, 2 BC = -1, …)
+    ast_start = -(args.start - 1)
+    ast_end   = -(args.end   - 1)
+    period_label = f"{args.start}-{args.end} BC"
+
     print("Loading DE422 ephemeris (will download ~623 MB on first run)…", flush=True)
     eph = load("de422.bsp")
     ts  = load.timescale()
@@ -230,13 +244,13 @@ def main():
     gibeon   = wgs84.latlon(GIBEON_LAT * N, GIBEON_LON * E, elevation_m=GIBEON_ELEV)
     observer = earth + gibeon
 
-    t_start = ts.tt(-1252, 1, 1)
-    t_end   = ts.tt(-1174, 1, 1)
+    t_start = ts.tt(ast_start, 1, 1)
+    t_end   = ts.tt(ast_end,   1, 1)
 
     # -----------------------------------------------------------------------
     # Step 1: eclipselib finds all validated lunar eclipses
     # -----------------------------------------------------------------------
-    print("Finding all lunar eclipses 1253–1175 BC (eclipselib)…", flush=True)
+    print(f"Finding all lunar eclipses {period_label} (eclipselib)…", flush=True)
     t_ecl, y_ecl, details = eclipselib.lunar_eclipses(t_start, t_end, eph)
 
     umbral_mask = y_ecl > 0
@@ -434,7 +448,7 @@ def main():
 
     print()
     print("=" * 72)
-    print("  HORIZONTAL ECLIPSES (SELENELIONS) — GIBEON  1253–1175 BC")
+    print(f"  HORIZONTAL ECLIPSES (SELENELIONS) — GIBEON  {period_label}")
     print(f"  Observer: {GIBEON_LAT}°N {GIBEON_LON}°E  elev {GIBEON_ELEV} m")
     print(f"  Terrain: western horizon (Aijalon valley) depressed {AIJALON_DEP_DEG}°  "
           f"(az {AIJALON_AZ_LO:.0f}°–{AIJALON_AZ_HI:.0f}°)")
