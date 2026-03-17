@@ -1,12 +1,16 @@
 import argparse
 
 from bethlehem import (
-    HebrewCalendarEngine, HebrewCalendarResult, LOCATIONS, fmt_date,
+    HebrewCalendarEngine,
+    HebrewCalendarResult,
+    LOCATIONS,
+    fmt_date,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CLI
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def parse_args():
     p = argparse.ArgumentParser(
@@ -25,26 +29,37 @@ Examples:
 """,
     )
     p.add_argument(
-        "--start", type=int, default=-3, metavar="ASTRO_YEAR",
+        "--start",
+        type=int,
+        default=-3,
+        metavar="ASTRO_YEAR",
         help="first equinox year to include (astronomical, default: -3 = 4 BC)",
     )
     p.add_argument(
-        "--end", type=int, default=0, metavar="ASTRO_YEAR",
+        "--end",
+        type=int,
+        default=0,
+        metavar="ASTRO_YEAR",
         help="last equinox year to include (astronomical, default: 0 = 1 BC)",
     )
     p.add_argument(
-        "--location", choices=LOCATIONS.keys(), default="jerusalem",
+        "--location",
+        choices=LOCATIONS.keys(),
+        default="jerusalem",
         help="observation site (default: jerusalem)",
     )
     p.add_argument(
-        "--output", metavar="FILE",
+        "--output",
+        metavar="FILE",
         help="save results to a JSON file (e.g. calendar.json)",
     )
     return p.parse_args()
 
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Key-events cross-reference (Star of Bethlehem)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def print_key_events(result: "HebrewCalendarResult", ts) -> None:
     """
@@ -62,13 +77,13 @@ def print_key_events(result: "HebrewCalendarResult", ts) -> None:
     print()
 
     events = [
-        ("Jupiter heliacal rising",           ts.tt(-2, 7, 28)),
-        ("1st Jupiter–Regulus conjunction",   ts.tt(-2, 9, 11)),
-        ("2nd Jupiter–Regulus conjunction",   ts.tt(-1, 2, 16)),
-        ("3rd Jupiter–Regulus conjunction",   ts.tt(-1, 5,  6)),
-        ("Jupiter–Venus conjunction",         ts.tt(-1, 6, 15)),
-        ("Jupiter heliacal rising",           ts.tt(-1, 8, 29)),
-        ("Jupiter 1st station (retrograde)",  ts.tt(-1, 12, 25)),
+        ("Jupiter heliacal rising", ts.tt(-2, 7, 28)),
+        ("1st Jupiter–Regulus conjunction", ts.tt(-2, 9, 11)),
+        ("2nd Jupiter–Regulus conjunction", ts.tt(-1, 2, 16)),
+        ("3rd Jupiter–Regulus conjunction", ts.tt(-1, 5, 6)),
+        ("Jupiter–Venus conjunction", ts.tt(-1, 6, 15)),
+        ("Jupiter heliacal rising", ts.tt(-1, 8, 29)),
+        ("Jupiter 1st station (retrograde)", ts.tt(-1, 12, 25)),
     ]
 
     for label, t_event in events:
@@ -82,7 +97,7 @@ def print_key_events(result: "HebrewCalendarResult", ts) -> None:
 
 
 def main():
-    args   = parse_args()
+    args = parse_args()
     engine = HebrewCalendarEngine(args.location, args.start, args.end)
     result = engine.build_calendar()
     result.print_calendar()

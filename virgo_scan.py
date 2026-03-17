@@ -15,18 +15,17 @@ Astronomical year -2 = 3 BC.
 """
 
 import argparse
-import numpy as np
 from skyfield.api import load, wgs84, N, E
 from skyfield.framelib import ecliptic_frame
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 CITIES = {
-    "jerusalem":  ( 31.7683,  35.2137, "Jerusalem"),
-    "babylon":    ( 32.5427,  44.4215, "Babylon"),
-    "alexandria": ( 31.2001,  29.9187, "Alexandria"),
-    "antioch":    ( 36.2021,  36.1601, "Antioch"),
-    "athens":     ( 37.9838,  23.7275, "Athens"),
-    "rome":       ( 41.9028,  12.4964, "Rome"),
+    "jerusalem": (31.7683, 35.2137, "Jerusalem"),
+    "babylon": (32.5427, 44.4215, "Babylon"),
+    "alexandria": (31.2001, 29.9187, "Alexandria"),
+    "antioch": (36.2021, 36.1601, "Antioch"),
+    "athens": (37.9838, 23.7275, "Athens"),
+    "rome": (41.9028, 12.4964, "Rome"),
 }
 
 parser = argparse.ArgumentParser(
@@ -34,12 +33,15 @@ parser = argparse.ArgumentParser(
     epilog="Available cities: " + ", ".join(CITIES),
 )
 parser.add_argument(
-    "location", nargs="?", default="jerusalem", metavar="CITY",
+    "location",
+    nargs="?",
+    default="jerusalem",
+    metavar="CITY",
     help="Observation city (default: jerusalem)",
 )
-parser.add_argument("--lat",  type=float, metavar="DEG", help="Custom latitude °N")
-parser.add_argument("--lon",  type=float, metavar="DEG", help="Custom longitude °E")
-parser.add_argument("--name", type=str,   metavar="NAME", default="Custom site")
+parser.add_argument("--lat", type=float, metavar="DEG", help="Custom latitude °N")
+parser.add_argument("--lon", type=float, metavar="DEG", help="Custom longitude °E")
+parser.add_argument("--name", type=str, metavar="NAME", default="Custom site")
 
 args = parser.parse_args()
 
@@ -67,57 +69,83 @@ else:
 # The moon being "at/under her feet" is satisfied when it is in this
 # region, or just south of it (Dec just below −20°).
 
-VIRGO_RA_MIN  = 174.0   # 11h 36m
-VIRGO_RA_MAX  = 228.0   # 15h 12m
+VIRGO_RA_MIN = 174.0  # 11h 36m
+VIRGO_RA_MAX = 228.0  # 15h 12m
 VIRGO_DEC_MIN = -22.0
-VIRGO_DEC_MAX =  14.0
+VIRGO_DEC_MAX = 14.0
 
 # Feet sub-region (southern portion of Virgo figure)
-FEET_RA_MIN  = 195.0   # 13h 00m
-FEET_RA_MAX  = 225.0   # 15h 00m
+FEET_RA_MIN = 195.0  # 13h 00m
+FEET_RA_MAX = 225.0  # 15h 00m
 FEET_DEC_MIN = -20.0
-FEET_DEC_MAX =   0.0
+FEET_DEC_MAX = 0.0
+
 
 def in_virgo(ra: float, dec: float) -> bool:
     return VIRGO_RA_MIN <= ra <= VIRGO_RA_MAX and VIRGO_DEC_MIN <= dec <= VIRGO_DEC_MAX
 
+
 def in_feet(ra: float, dec: float) -> bool:
     return FEET_RA_MIN <= ra <= FEET_RA_MAX and FEET_DEC_MIN <= dec <= FEET_DEC_MAX
+
 
 def phase_name(deg: float) -> str:
     """Approximate lunar phase label from elongation angle."""
     d = deg % 360
-    if d < 22 or d > 338:          return "new"
-    if 22  <= d <  68:             return "waxing crescent"
-    if 68  <= d < 112:             return "first quarter"
-    if 112 <= d < 158:             return "waxing gibbous"
-    if 158 <= d < 202:             return "full"
-    if 202 <= d < 248:             return "waning gibbous"
-    if 248 <= d < 292:             return "last quarter"
-    return                              "waning crescent"
+    if d < 22 or d > 338:
+        return "new"
+    if 22 <= d < 68:
+        return "waxing crescent"
+    if 68 <= d < 112:
+        return "first quarter"
+    if 112 <= d < 158:
+        return "waxing gibbous"
+    if 158 <= d < 202:
+        return "full"
+    if 202 <= d < 248:
+        return "waning gibbous"
+    if 248 <= d < 292:
+        return "last quarter"
+    return "waning crescent"
+
 
 # ── Load ephemeris ────────────────────────────────────────────────────────────
 print("Loading DE422 ephemeris (will download ~623 MB on first run)…", flush=True)
 eph = load("de422.bsp")
-ts  = load.timescale()
+ts = load.timescale()
 print("Loaded.\n")
 
-earth  = eph["earth"]
-sun_b  = eph["sun"]
+earth = eph["earth"]
+sun_b = eph["sun"]
 moon_b = eph["moon"]
 
 obs = earth + wgs84.latlon(obs_lat * N, obs_lon * E)
 
 # ── Date helpers ──────────────────────────────────────────────────────────────
-MONTHS = ["Jan","Feb","Mar","Apr","May","Jun",
-          "Jul","Aug","Sep","Oct","Nov","Dec"]
+MONTHS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+]
+
 
 def era(y: int) -> str:
     return f"{-y+1} BC" if y <= 0 else f"{y} AD"
 
+
 def fmt(t) -> str:
     y, mo, d, *_ = t.tt_calendar()
     return f"{int(d):2d} {MONTHS[mo-1]} {era(y)}"
+
 
 # Julian calendar offset relative to proleptic Gregorian in 3 BC.
 # Going forward from 3 BC to 1582 AD, 12 century years (not divisible by 400)
@@ -125,7 +153,8 @@ def fmt(t) -> str:
 # by 1582.  But in 1582 it was only 10 days behind → in 3 BC Julian was
 # 10 − 12 = −2 days behind, i.e. 2 days AHEAD of Gregorian.
 # Proleptic Julian date = Proleptic Gregorian date + 2 days.
-JULIAN_OFFSET = 2   # days to add to Gregorian to get proleptic Julian
+JULIAN_OFFSET = 2  # days to add to Gregorian to get proleptic Julian
+
 
 def fmt_julian(t) -> str:
     """Return the proleptic Julian calendar date corresponding to t."""
@@ -136,61 +165,68 @@ def fmt_julian(t) -> str:
     y2, mo2, d2, *_ = t2.tt_calendar()
     return f"{int(d2):2d} {MONTHS[mo2-1]} {era(y2)} (Julian)"
 
+
 # ── Build list of days to scan ────────────────────────────────────────────────
-YEAR = -2   # astronomical year for 3 BC
-MONTH_LENGTHS = {7:31, 8:31, 9:30, 10:31, 11:30, 12:31}
+YEAR = -2  # astronomical year for 3 BC
+MONTH_LENGTHS = {7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
 scan_days = [
-    (YEAR, mo, da)
-    for mo in range(7, 13)
-    for da in range(1, MONTH_LENGTHS[mo] + 1)
+    (YEAR, mo, da) for mo in range(7, 13) for da in range(1, MONTH_LENGTHS[mo] + 1)
 ]
 
 print(f"Observer  : {obs_name}  ({obs_lat:.4f}°N, {obs_lon:.4f}°E)")
-print(f"Scan range: 1 Jul 3 BC – 31 Dec 3 BC  ({len(scan_days)} days, noon TT each day)")
+print(
+    f"Scan range: 1 Jul 3 BC – 31 Dec 3 BC  ({len(scan_days)} days, noon TT each day)"
+)
 print()
-print(f"Virgo boundary (ICRS J2000): RA {VIRGO_RA_MIN:.0f}°–{VIRGO_RA_MAX:.0f}°"
-      f"  Dec {VIRGO_DEC_MIN:+.0f}°–{VIRGO_DEC_MAX:+.0f}°")
-print(f"Feet sub-region           : RA {FEET_RA_MIN:.0f}°–{FEET_RA_MAX:.0f}°"
-      f"  Dec {FEET_DEC_MIN:+.0f}°–{FEET_DEC_MAX:+.0f}°")
+print(
+    f"Virgo boundary (ICRS J2000): RA {VIRGO_RA_MIN:.0f}°–{VIRGO_RA_MAX:.0f}°"
+    f"  Dec {VIRGO_DEC_MIN:+.0f}°–{VIRGO_DEC_MAX:+.0f}°"
+)
+print(
+    f"Feet sub-region           : RA {FEET_RA_MIN:.0f}°–{FEET_RA_MAX:.0f}°"
+    f"  Dec {FEET_DEC_MIN:+.0f}°–{FEET_DEC_MAX:+.0f}°"
+)
 print()
 
 # ── Column headers ────────────────────────────────────────────────────────────
-H1 = (f"{'Date (Gregorian)':<15}  {'(Julian)':>15}  "
-      f"{'Sun RA°':>7}  {'Sun Dec°':>8}  {'In Virgo':>8}    "
-      f"{'Moon RA°':>8}  {'Moon Dec°':>9}  {'Phase':>7}  {'Elng°':>5}  {'Feet?':>5}  "
-      f"{'Moon ecl lon°':>13}")
+H1 = (
+    f"{'Date (Gregorian)':<15}  {'(Julian)':>15}  "
+    f"{'Sun RA°':>7}  {'Sun Dec°':>8}  {'In Virgo':>8}    "
+    f"{'Moon RA°':>8}  {'Moon Dec°':>9}  {'Phase':>7}  {'Elng°':>5}  {'Feet?':>5}  "
+    f"{'Moon ecl lon°':>13}"
+)
 print(H1)
 print("─" * len(H1))
 
 # ── Day loop ──────────────────────────────────────────────────────────────────
 matches = []
 
-for (yr, mo, da) in scan_days:
-    t = ts.tt(yr, mo, da, 12)   # noon TT
+for yr, mo, da in scan_days:
+    t = ts.tt(yr, mo, da, 12)  # noon TT
 
     # Sun — ICRS RA/Dec
-    sun_app              = obs.at(t).observe(sun_b).apparent()
-    sun_ra, sun_dec, _   = sun_app.radec()          # ICRS (J2000), star-fixed
-    sun_ra_d             = sun_ra.hours * 15.0
-    sun_dec_d            = sun_dec.degrees
-    _, sun_ecl_lon, _    = sun_app.frame_latlon(ecliptic_frame)
-    sun_lon_d            = sun_ecl_lon.degrees
+    sun_app = obs.at(t).observe(sun_b).apparent()
+    sun_ra, sun_dec, _ = sun_app.radec()  # ICRS (J2000), star-fixed
+    sun_ra_d = sun_ra.hours * 15.0
+    sun_dec_d = sun_dec.degrees
+    _, sun_ecl_lon, _ = sun_app.frame_latlon(ecliptic_frame)
+    sun_lon_d = sun_ecl_lon.degrees
 
     # Moon — ICRS RA/Dec
-    moon_app             = obs.at(t).observe(moon_b).apparent()
+    moon_app = obs.at(t).observe(moon_b).apparent()
     moon_ra, moon_dec, _ = moon_app.radec()
-    moon_ra_d            = moon_ra.hours * 15.0
-    moon_dec_d           = moon_dec.degrees
-    _, moon_ecl_lon, _   = moon_app.frame_latlon(ecliptic_frame)
-    moon_lon_d           = moon_ecl_lon.degrees
+    moon_ra_d = moon_ra.hours * 15.0
+    moon_dec_d = moon_dec.degrees
+    _, moon_ecl_lon, _ = moon_app.frame_latlon(ecliptic_frame)
+    moon_lon_d = moon_ecl_lon.degrees
 
     # Lunar phase: elongation of moon from sun (ecliptic longitude difference)
-    elong_d   = (moon_lon_d - sun_lon_d) % 360.0
-    ph        = phase_name(elong_d)
+    elong_d = (moon_lon_d - sun_lon_d) % 360.0
+    ph = phase_name(elong_d)
 
-    sun_in_v  = in_virgo(sun_ra_d, sun_dec_d)
+    sun_in_v = in_virgo(sun_ra_d, sun_dec_d)
     moon_feet = in_feet(moon_ra_d, moon_dec_d)
-    flag      = "  ◄◄◄ MATCH" if (sun_in_v and moon_feet) else ""
+    flag = "  ◄◄◄ MATCH" if (sun_in_v and moon_feet) else ""
 
     # Julian date label (same JD, calendar shifted by JULIAN_OFFSET)
     jd_julian = t.tt + JULIAN_OFFSET
@@ -198,14 +234,27 @@ for (yr, mo, da) in scan_days:
     yj, moj, dj, *_ = t_jul.tt_calendar()
     jul_label = f"{int(dj):2d} {MONTHS[moj-1]} (Jul)"
 
-    print(f"{fmt(t):<15}  {jul_label:<15}  "
-          f"{sun_ra_d:7.2f}  {sun_dec_d:+8.2f}  {str(sun_in_v):>8}    "
-          f"{moon_ra_d:8.2f}  {moon_dec_d:+9.2f}  {ph:>15}  {elong_d:5.1f}  {str(moon_feet):>5}  "
-          f"{moon_lon_d:13.2f}{flag}")
+    print(
+        f"{fmt(t):<15}  {jul_label:<15}  "
+        f"{sun_ra_d:7.2f}  {sun_dec_d:+8.2f}  {str(sun_in_v):>8}    "
+        f"{moon_ra_d:8.2f}  {moon_dec_d:+9.2f}  {ph:>15}  {elong_d:5.1f}  {str(moon_feet):>5}  "
+        f"{moon_lon_d:13.2f}{flag}"
+    )
 
     if sun_in_v and moon_feet:
-        matches.append((fmt(t), fmt_julian(t), sun_ra_d, sun_dec_d,
-                        moon_ra_d, moon_dec_d, elong_d, ph, moon_lon_d))
+        matches.append(
+            (
+                fmt(t),
+                fmt_julian(t),
+                sun_ra_d,
+                sun_dec_d,
+                moon_ra_d,
+                moon_dec_d,
+                elong_d,
+                ph,
+                moon_lon_d,
+            )
+        )
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 DIV = "═" * 100
@@ -213,7 +262,7 @@ print()
 print(DIV)
 print(f"\nSun-in-Virgo ∧ Moon-in-feet-of-Virgo : {len(matches)} day(s) found\n")
 if matches:
-    for (date, julian_date, sra, sdec, mra, mdec, el, ph, mlon) in matches:
+    for date, julian_date, sra, sdec, mra, mdec, el, ph, mlon in matches:
         print(f"  {date}  =  {julian_date}")
         print(f"    Sun  : RA {sra:.2f}°  Dec {sdec:+.2f}°")
         print(f"    Moon : RA {mra:.2f}°  Dec {mdec:+.2f}°  ecl lon {mlon:.2f}°")
@@ -226,13 +275,13 @@ print("\nAll Sun-in-Virgo days in the scan period:\n")
 
 in_virgo_run = []
 prev_virgo = False
-for (yr, mo, da) in scan_days:
+for yr, mo, da in scan_days:
     t = ts.tt(yr, mo, da, 12)
-    sun_app            = obs.at(t).observe(sun_b).apparent()
+    sun_app = obs.at(t).observe(sun_b).apparent()
     sun_ra, sun_dec, _ = sun_app.radec()
-    sun_ra_d           = sun_ra.hours * 15.0
-    sun_dec_d          = sun_dec.degrees
-    cur_virgo          = in_virgo(sun_ra_d, sun_dec_d)
+    sun_ra_d = sun_ra.hours * 15.0
+    sun_dec_d = sun_dec.degrees
+    cur_virgo = in_virgo(sun_ra_d, sun_dec_d)
     if cur_virgo and not prev_virgo:
         in_virgo_run.append([fmt(t), None])
     if not cur_virgo and prev_virgo:

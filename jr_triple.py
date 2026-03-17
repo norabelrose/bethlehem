@@ -44,52 +44,72 @@ from skyfield.framelib import ecliptic_J2000_frame as ecliptic_frame
 
 # ── City database ──────────────────────────────────────────────────────────────
 CITIES = {
-    "jerusalem":  ( 31.7683,  35.2137, "Jerusalem"),
-    "babylon":    ( 32.5427,  44.4215, "Babylon"),
-    "alexandria": ( 31.2001,  29.9187, "Alexandria"),
-    "antioch":    ( 36.2021,  36.1601, "Antioch"),
-    "athens":     ( 37.9838,  23.7275, "Athens"),
-    "rome":       ( 41.9028,  12.4964, "Rome"),
-    "carthage":   ( 36.8527,  10.3233, "Carthage"),
-    "nineveh":    ( 36.3590,  43.1527, "Nineveh"),
-    "memphis":    ( 29.8511,  31.2521, "Memphis (Egypt)"),
-    "ur":         ( 30.9625,  46.1035, "Ur"),
-    "persepolis": ( 29.9350,  52.8905, "Persepolis"),
+    "jerusalem": (31.7683, 35.2137, "Jerusalem"),
+    "babylon": (32.5427, 44.4215, "Babylon"),
+    "alexandria": (31.2001, 29.9187, "Alexandria"),
+    "antioch": (36.2021, 36.1601, "Antioch"),
+    "athens": (37.9838, 23.7275, "Athens"),
+    "rome": (41.9028, 12.4964, "Rome"),
+    "carthage": (36.8527, 10.3233, "Carthage"),
+    "nineveh": (36.3590, 43.1527, "Nineveh"),
+    "memphis": (29.8511, 31.2521, "Memphis (Egypt)"),
+    "ur": (30.9625, 46.1035, "Ur"),
+    "persepolis": (29.9350, 52.8905, "Persepolis"),
 }
 
 # ── CLI ────────────────────────────────────────────────────────────────────────
 parser = argparse.ArgumentParser(
     description="Search DE422 for Jupiter–Regulus triple conjunctions.",
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    epilog="Available cities:\n" + "\n".join(
-        f"  {k:<12}  {v[2]}  ({v[0]:.4f}°N, {v[1]:.4f}°E)"
-        for k, v in CITIES.items()
+    epilog="Available cities:\n"
+    + "\n".join(
+        f"  {k:<12}  {v[2]}  ({v[0]:.4f}°N, {v[1]:.4f}°E)" for k, v in CITIES.items()
     ),
 )
 parser.add_argument(
-    "location", nargs="?", default="jerusalem", metavar="CITY",
+    "location",
+    nargs="?",
+    default="jerusalem",
+    metavar="CITY",
     help="Observation city (default: jerusalem)",
 )
 parser.add_argument(
-    "--threshold", type=float, default=1.0, metavar="DEG",
+    "--threshold",
+    type=float,
+    default=1.0,
+    metavar="DEG",
     help="Hit threshold in degrees (default: 1.0)",
 )
 parser.add_argument(
-    "--start", type=int, default=-3000, metavar="YEAR",
+    "--start",
+    type=int,
+    default=-3000,
+    metavar="YEAR",
     help="Start year, astronomical (default: -3000 = 3001 BC)",
 )
 parser.add_argument(
-    "--end", type=int, default=3000, metavar="YEAR",
+    "--end",
+    type=int,
+    default=3000,
+    metavar="YEAR",
     help="End year, astronomical (default: 3000 AD)",
 )
-parser.add_argument("--lat",  type=float, metavar="DEG",
-                    help="Custom observer latitude (°N)")
-parser.add_argument("--lon",  type=float, metavar="DEG",
-                    help="Custom observer longitude (°E)")
-parser.add_argument("--name", type=str,   metavar="NAME", default="Custom site",
-                    help="Display name for a custom location")
-parser.add_argument("--list", action="store_true",
-                    help="List available cities and exit")
+parser.add_argument(
+    "--lat", type=float, metavar="DEG", help="Custom observer latitude (°N)"
+)
+parser.add_argument(
+    "--lon", type=float, metavar="DEG", help="Custom observer longitude (°E)"
+)
+parser.add_argument(
+    "--name",
+    type=str,
+    metavar="NAME",
+    default="Custom site",
+    help="Display name for a custom location",
+)
+parser.add_argument(
+    "--list", action="store_true", help="List available cities and exit"
+)
 
 args = parser.parse_args()
 
@@ -109,29 +129,43 @@ else:
         parser.error(f"Unknown city '{args.location}'. Use --list to see options.")
     obs_lat, obs_lon, obs_name = CITIES[key]
 
-THRESHOLD = args.threshold   # degrees
+THRESHOLD = args.threshold  # degrees
 
 # ── Load ephemeris ─────────────────────────────────────────────────────────────
 print(f"Observer   : {obs_name}  ({obs_lat:.4f}°N, {obs_lon:.4f}°E)")
 print(f"Threshold  : {THRESHOLD}°  ({THRESHOLD * 60:.1f}′)")
 print("Loading DE422 ephemeris (will download ~623 MB on first run)…", flush=True)
 eph = load("de422.bsp")
-ts  = load.timescale()
+ts = load.timescale()
 print("Loaded.\n", flush=True)
 
-earth   = eph["earth"]
-sun     = eph["sun"]
-jup     = eph["jupiter barycenter"]
+earth = eph["earth"]
+sun = eph["sun"]
+jup = eph["jupiter barycenter"]
 regulus = Star(ra_hours=(10, 8, 22.311), dec_degrees=(11, 58, 1.95))
 
 obs_site = wgs84.latlon(obs_lat * N, obs_lon * E)
 
 # ── Formatting helpers ─────────────────────────────────────────────────────────
-MONTHS = ["Jan","Feb","Mar","Apr","May","Jun",
-          "Jul","Aug","Sep","Oct","Nov","Dec"]
+MONTHS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+]
+
 
 def era(y: int) -> str:
     return f"{-y+1} BC" if y <= 0 else f"{y} AD"
+
 
 def fmt(t, hhmm: bool = False) -> str:
     y, mo, d, H, Mi, S = t.tt_calendar()
@@ -140,11 +174,13 @@ def fmt(t, hhmm: bool = False) -> str:
         s += f"  {H + Mi/60 + S/3600:05.2f}h TT"
     return s
 
+
 def sep_str(deg: float) -> str:
     """Format separation as arcminutes if < 1°, else degrees."""
     if deg < 1.0:
         return f"{deg * 60:.2f}′"
     return f"{deg:.3f}°"
+
 
 # ── Vectorised position functions ──────────────────────────────────────────────
 def geo_jup_lon(jd_arr: np.ndarray) -> np.ndarray:
@@ -154,19 +190,22 @@ def geo_jup_lon(jd_arr: np.ndarray) -> np.ndarray:
     _, lon, _ = a.frame_latlon(ecliptic_frame)
     return lon.degrees
 
+
 def geo_sep(jd_arr: np.ndarray) -> np.ndarray:
     """Geocentric Jupiter–Regulus angular separation (°)."""
-    t  = ts.tt_jd(jd_arr)
+    t = ts.tt_jd(jd_arr)
     aJ = earth.at(t).observe(jup).apparent()
     aR = earth.at(t).observe(regulus).apparent()
     return aJ.separation_from(aR).degrees
 
+
 def geo_elong(jd_val: float) -> float:
     """Solar elongation of Jupiter (°) at a single JD."""
-    t  = ts.tt_jd(np.array([jd_val]))
+    t = ts.tt_jd(np.array([jd_val]))
     aJ = earth.at(t).observe(jup).apparent()
     aS = earth.at(t).observe(sun).apparent()
     return float(aJ.separation_from(aS).degrees[0])
+
 
 def geo_jup_ecl(jd_val: float):
     """Geocentric ecliptic lon/lat of Jupiter at a single JD. Returns (lon°, lat°)."""
@@ -174,6 +213,7 @@ def geo_jup_ecl(jd_val: float):
     a = earth.at(t).observe(jup).apparent()
     lat, lon, _ = a.frame_latlon(ecliptic_frame)
     return float(lon.degrees[0]), float(lat.degrees[0])
+
 
 # ── Zodiac helpers ─────────────────────────────────────────────────────────────
 # Fagan-Bradley ayanamsa: offset from J2000.0 ecliptic to Babylonian sidereal.
@@ -184,13 +224,20 @@ def geo_jup_ecl(jd_val: float):
 BABYLONIAN_AYANAMSA = 24.74  # degrees
 
 ZODIAC_SIGNS = [
-    (  0,  30, "Aries"),       ( 30,  60, "Taurus"),
-    ( 60,  90, "Gemini"),      ( 90, 120, "Cancer"),
-    (120, 150, "Leo"),         (150, 180, "Virgo"),
-    (180, 210, "Libra"),       (210, 240, "Scorpius"),
-    (240, 270, "Sagittarius"), (270, 300, "Capricorn"),
-    (300, 330, "Aquarius"),    (330, 360, "Pisces"),
+    (0, 30, "Aries"),
+    (30, 60, "Taurus"),
+    (60, 90, "Gemini"),
+    (90, 120, "Cancer"),
+    (120, 150, "Leo"),
+    (150, 180, "Virgo"),
+    (180, 210, "Libra"),
+    (210, 240, "Scorpius"),
+    (240, 270, "Sagittarius"),
+    (270, 300, "Capricorn"),
+    (300, 330, "Aquarius"),
+    (330, 360, "Pisces"),
 ]
+
 
 def zodiac_sign(j2000_lon_deg: float) -> tuple:
     """Return (sign_name, babylonian_lon) for a J2000.0 ecliptic longitude."""
@@ -200,6 +247,7 @@ def zodiac_sign(j2000_lon_deg: float) -> tuple:
             return name, bab_lon
     return "Pisces", bab_lon
 
+
 def get_sun_lon_vec(jd_arr: np.ndarray) -> np.ndarray:
     """Geocentric ecliptic longitude of the Sun (vectorised)."""
     t = ts.tt_jd(jd_arr)
@@ -207,9 +255,10 @@ def get_sun_lon_vec(jd_arr: np.ndarray) -> np.ndarray:
     _, lon, _ = a.frame_latlon(ecliptic_frame)
     return lon.degrees
 
+
 def geo_elong_vec(jd_arr: np.ndarray) -> np.ndarray:
     """Solar elongation of Jupiter (vectorised)."""
-    t  = ts.tt_jd(jd_arr)
+    t = ts.tt_jd(jd_arr)
     aJ = earth.at(t).observe(jup).apparent()
     aS = earth.at(t).observe(sun).apparent()
     return aJ.separation_from(aS).degrees
@@ -230,17 +279,17 @@ def find_heliacal_rising(jd_ref: float) -> tuple:
 
     Returns (jd_rising, jup_lon_j2000_degrees) or (None, None).
     """
-    HELIACAL_THRESHOLD = 12.0   # degrees
+    HELIACAL_THRESHOLD = 12.0  # degrees
 
     jd_start = max(jd_ref - 800, JD_START)
-    jd_scan  = np.arange(jd_start, jd_ref, 1.0)
+    jd_scan = np.arange(jd_start, jd_ref, 1.0)
     if len(jd_scan) < 3:
         return None, None
 
-    elong   = geo_elong_vec(jd_scan)
+    elong = geo_elong_vec(jd_scan)
     jup_lon = geo_jup_lon(jd_scan)
     sun_lon = get_sun_lon_vec(jd_scan)
-    morning = ((jup_lon - sun_lon) % 360) > 180   # Jupiter west of Sun
+    morning = ((jup_lon - sun_lon) % 360) > 180  # Jupiter west of Sun
 
     # Backward scan: find the last local elongation minimum = last conjunction
     last_conj_idx = None
@@ -258,6 +307,7 @@ def find_heliacal_rising(jd_ref: float) -> tuple:
             return float(jd_scan[i]), float(jup_lon[i])
 
     return None, None
+
 
 # ── Closest-approach refinement ────────────────────────────────────────────────
 def closest_approach(jd_lo: float, jd_hi: float) -> tuple:
@@ -283,11 +333,12 @@ def closest_approach(jd_lo: float, jd_hi: float) -> tuple:
 
     return float(jd_m[mi2]), float(sep_m[mi2])
 
+
 # ── Scan bounds ────────────────────────────────────────────────────────────────
 DE422_LO = ts.tt(-3000, 11, 14).tt
-DE422_HI = ts.tt( 3000,  1,  1).tt
+DE422_HI = ts.tt(3000, 1, 1).tt
 JD_START = max(ts.tt(args.start, 1, 1).tt, DE422_LO)
-JD_END   = min(ts.tt(args.end,   1, 1).tt, DE422_HI)
+JD_END = min(ts.tt(args.end, 1, 1).tt, DE422_HI)
 total_days = int(JD_END - JD_START)
 
 print(f"Scan range : {era(args.start)} to {era(args.end)}  (~{total_days:,} days)")
@@ -295,9 +346,9 @@ print(f"Scan range : {era(args.start)} to {era(args.end)}  (~{total_days:,} days
 # ── Phase 1: Daily geocentric scan ─────────────────────────────────────────────
 print("Phase 1: Daily geocentric scan (longitude + Regulus separation)…", flush=True)
 
-CHUNK   = 50_000
-jd_all  = np.arange(JD_START, JD_END, 1.0)
-n       = len(jd_all)
+CHUNK = 50_000
+jd_all = np.arange(JD_START, JD_END, 1.0)
+n = len(jd_all)
 lon_arr = np.empty(n)
 sep_arr = np.empty(n)
 
@@ -308,7 +359,7 @@ for ci in range(0, n, CHUNK):
     yr = ts.tt_jd(jd_all[end - 1]).tt_calendar()[0]
     print(f"  … {end:>7,}/{n:,} days  ({era(yr)})", flush=True)
 
-print(f"  Done.\n", flush=True)
+print("  Done.\n", flush=True)
 
 # ── Phase 2: Find Jupiter stations ─────────────────────────────────────────────
 print("Phase 2: Finding Jupiter stations…", flush=True)
@@ -329,13 +380,13 @@ for i in range(1, len(sign_vel)):
 # sign_vel[i] → sign_vel[i+1] change means station near day index i+1
 sc = np.where(np.diff(sign_vel) != 0)[0]
 
-stations = []   # list of (jd_tt, type)  type ∈ {'R', 'D'}
+stations = []  # list of (jd_tt, type)  type ∈ {'R', 'D'}
 for i in sc:
     jd_stat = jd_all[i + 1]
     if sign_vel[i] > 0 and sign_vel[i + 1] < 0:
-        stations.append((jd_stat, 'R'))   # direct→retrograde: 1st station
+        stations.append((jd_stat, "R"))  # direct→retrograde: 1st station
     elif sign_vel[i] < 0 and sign_vel[i + 1] > 0:
-        stations.append((jd_stat, 'D'))   # retrograde→direct: 2nd station
+        stations.append((jd_stat, "D"))  # retrograde→direct: 2nd station
 
 print(f"  Found {len(stations)} stations.", flush=True)
 
@@ -345,26 +396,27 @@ print(f"  Found {len(stations)} stations.", flush=True)
 # The station at the boundary between windows[k] and windows[k+1] has
 # type = motion of windows[k+1] (the motion it initiates).
 
-windows = []   # (motion, jd_lo, jd_hi)
+windows = []  # (motion, jd_lo, jd_hi)
 
 if stations:
     # Window before the first station
-    pre_motion = 'D' if stations[0][1] == 'R' else 'R'
+    pre_motion = "D" if stations[0][1] == "R" else "R"
     windows.append((pre_motion, JD_START, stations[0][0]))
 
     # Windows between consecutive stations
     for i in range(len(stations) - 1):
         # stations[i] initiates the motion in this interval
-        motion = stations[i][1]   # 'R' → retrograde; 'D' → direct
+        motion = stations[i][1]  # 'R' → retrograde; 'D' → direct
         windows.append((motion, stations[i][0], stations[i + 1][0]))
 
     # Window after the last station
     post_motion = stations[-1][1]
     windows.append((post_motion, stations[-1][0], JD_END))
 else:
-    windows.append(('D', JD_START, JD_END))
+    windows.append(("D", JD_START, JD_END))
 
 print(f"  Built {len(windows)} motion windows.\n", flush=True)
+
 
 # ── Helper: minimum daily separation in a window ──────────────────────────────
 def window_min_sep(jd_lo: float, jd_hi: float):
@@ -377,8 +429,9 @@ def window_min_sep(jd_lo: float, jd_hi: float):
     if i_hi <= i_lo:
         return None, np.inf
     seg = sep_arr[i_lo:i_hi]
-    mi  = int(np.argmin(seg))
+    mi = int(np.argmin(seg))
     return jd_all[i_lo + mi], float(seg[mi])
+
 
 # ── Phase 4: Detect triple conjunctions ───────────────────────────────────────
 print("Phase 4: Searching for triple conjunctions…", flush=True)
@@ -387,7 +440,7 @@ print("(Events appear below as they are found)\n", flush=True)
 DIVIDER = "═" * 72
 
 found = 0
-heliacal_signs = []   # zodiac sign of each preceding heliacal rising
+heliacal_signs = []  # zodiac sign of each preceding heliacal rising
 
 for k in range(len(windows) - 2):
     m1, lo1, hi1 = windows[k]
@@ -395,7 +448,7 @@ for k in range(len(windows) - 2):
     m3, lo3, hi3 = windows[k + 2]
 
     # Only D→R→D
-    if not (m1 == 'D' and m2 == 'R' and m3 == 'D'):
+    if not (m1 == "D" and m2 == "R" and m3 == "D"):
         continue
 
     # Quick check with daily data — all three windows must have a hit
@@ -432,25 +485,31 @@ for k in range(len(windows) - 2):
     lon3, lat3 = geo_jup_ecl(jd3)
 
     # Station times at the two window boundaries
-    t_s1 = ts.tt_jd(hi1)   # hi1 == lo2: 1st station (direct → retrograde)
-    t_s2 = ts.tt_jd(hi2)   # hi2 == lo3: 2nd station (retrograde → direct)
+    t_s1 = ts.tt_jd(hi1)  # hi1 == lo2: 1st station (direct → retrograde)
+    t_s2 = ts.tt_jd(hi2)  # hi2 == lo3: 2nd station (retrograde → direct)
 
     found += 1
     print(DIVIDER)
     print(f"  TRIPLE CONJUNCTION #{found}")
     print()
-    print(f"    Hit 1  (    direct):  {fmt(t1, hhmm=True)}"
-          f"   sep {sep_str(s1):>9}   elong {e1:.1f}°")
-    print(f"    Hit 2  (retrograde):  {fmt(t2, hhmm=True)}"
-          f"   sep {sep_str(s2):>9}   elong {e2:.1f}°")
-    print(f"    Hit 3  (    direct):  {fmt(t3, hhmm=True)}"
-          f"   sep {sep_str(s3):>9}   elong {e3:.1f}°")
+    print(
+        f"    Hit 1  (    direct):  {fmt(t1, hhmm=True)}"
+        f"   sep {sep_str(s1):>9}   elong {e1:.1f}°"
+    )
+    print(
+        f"    Hit 2  (retrograde):  {fmt(t2, hhmm=True)}"
+        f"   sep {sep_str(s2):>9}   elong {e2:.1f}°"
+    )
+    print(
+        f"    Hit 3  (    direct):  {fmt(t3, hhmm=True)}"
+        f"   sep {sep_str(s3):>9}   elong {e3:.1f}°"
+    )
     print()
-    print(f"    Stations:")
+    print("    Stations:")
     print(f"      Between hits 1–2:  {fmt(t_s1)}   (1st station: direct→retrograde)")
     print(f"      Between hits 2–3:  {fmt(t_s2)}   (2nd station: retrograde→direct)")
     print()
-    print(f"    Jupiter ecliptic position at each hit:")
+    print("    Jupiter ecliptic position at each hit:")
     print(f"      Hit 1:  lon {lon1:.2f}°   lat {lat1:+.3f}°")
     print(f"      Hit 2:  lon {lon2:.2f}°   lat {lat2:+.3f}°")
     print(f"      Hit 3:  lon {lon3:.2f}°   lat {lat3:+.3f}°")
@@ -460,23 +519,26 @@ for k in range(len(windows) - 2):
         t_hr = ts.tt_jd(jd_hr)
         sign, bab_lon = zodiac_sign(hr_lon)
         heliacal_signs.append(sign)
-        print(f"    Preceding Jupiter heliacal rising:")
+        print("    Preceding Jupiter heliacal rising:")
         print(f"      Date  :  {fmt(t_hr)}")
         print(f"      Zodiac:  {sign}  ({bab_lon:.1f}° Babylonian sidereal)")
     else:
-        print(f"    Preceding Jupiter heliacal rising:  not found in search window")
+        print("    Preceding Jupiter heliacal rising:  not found in search window")
     print(DIVIDER, flush=True)
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 print()
-print(f"TOTAL Jupiter–Regulus triple conjunctions"
-      f" (threshold {THRESHOLD}°, {era(args.start)}–{era(args.end)}): {found}")
+print(
+    f"TOTAL Jupiter–Regulus triple conjunctions"
+    f" (threshold {THRESHOLD}°, {era(args.start)}–{era(args.end)}): {found}"
+)
 print(f"  Ephemeris : DE422  (~{total_days // 365} years scanned)")
 
 if heliacal_signs:
     print()
     print("Zodiac sign of preceding Jupiter heliacal rising:")
     from collections import Counter
+
     counts = Counter(heliacal_signs)
     total_hr = len(heliacal_signs)
     sign_order = [name for _, _, name in ZODIAC_SIGNS]
@@ -486,6 +548,8 @@ if heliacal_signs:
             continue
         bar = "█" * n
         print(f"  {name:<13}  {n:>5}  ({100 * n / total_hr:5.1f}%)  {bar}")
-    print(f"  {'(not found)':<13}  {found - total_hr:>5}  ({100 * (found - total_hr) / found:5.1f}%)")
+    print(
+        f"  {'(not found)':<13}  {found - total_hr:>5}  ({100 * (found - total_hr) / found:5.1f}%)"
+    )
 
 print()

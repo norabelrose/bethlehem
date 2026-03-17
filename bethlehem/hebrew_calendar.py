@@ -61,9 +61,8 @@ separate ΔT error bar is given. Intercalation uncertainty (whether the Sanhedri
 actually intercalated in a given year) is noted where the decision was close.
 """
 
-import argparse
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict, field
 from pathlib import Path
 
 import numpy as np
@@ -75,34 +74,124 @@ from skyfield import almanac
 # ─────────────────────────────────────────────────────────────────────────────
 
 LOCATIONS = {
-    "jerusalem": ("Jerusalem",             31.7683,  35.2137),
-    "avaris":    ("Avaris (Tell el-Dabʿa)", 30.787,  31.823),
-    "babylon":   ("Babylon",               32.5364,  44.4208),
+    "jerusalem": ("Jerusalem", 31.7683, 35.2137),
+    "avaris": ("Avaris (Tell el-Dabʿa)", 30.787, 31.823),
+    "babylon": ("Babylon", 32.5364, 44.4208),
 }
 
-MONTHS_GR = ["Jan","Feb","Mar","Apr","May","Jun",
-             "Jul","Aug","Sep","Oct","Nov","Dec"]
+MONTHS_GR = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Date formatting helpers (module-level; used by both classes)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def era(y: int) -> str:
     return f"{-y+1} BC" if y <= 0 else f"{y} AD"
+
 
 def fmt_date(t) -> str:
     y, mo, d = t.tt_calendar()[:3]
     return f"{int(d):2d} {MONTHS_GR[mo-1]} {era(y)}"
 
+
 def fmt_datetime(t) -> str:
     y, mo, d, H, Mi, S = t.tt_calendar()
-    fh = H + Mi/60 + S/3600
+    fh = H + Mi / 60 + S / 3600
     return f"{int(d):2d} {MONTHS_GR[mo-1]} {era(y)} {fh:05.2f}h TT"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CalendarEntry
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@dataclass
+class CalendarEntry:
+    """One Hebrew month as determined by first-crescent observation."""
+
+    mi: int
+    """Index of this month in the raw month_starts list produced by the engine."""
+
+    hname: str
+    """Hebrew month name (e.g. 'Nisan', 'Tishri', 'Adar II')."""
+
+    am_yr: int
+    """Jewish Anno Mundi year this month belongs to (astronomical year + 3761 for Tishri-anchored years)."""
+
+    evening_jd: float
+    """TT Julian Day of the sunset evening on which the crescent was first sighted (or would have been)."""
+
+    greg_d: int
+    """Proleptic Gregorian day-of-month of the crescent evening."""
+
+    greg_mo: int
+    """Proleptic Gregorian month number (1–12) of the crescent evening."""
+
+    greg_yr: int
+    """Proleptic Gregorian astronomical year (0 = 1 BC, -1 = 2 BC, etc.) of the crescent evening."""
+
+    greg_str: str
+    """Human-readable Gregorian date string, e.g. '14 Apr 3 BC'."""
+
+    cat: str
+    """Yallop visibility category: A (easily visible) through E (definitely not visible)."""
+
+    q: float
+    """Yallop q-factor: q = ARCV − f(W). Positive values indicate a visible crescent."""
+
+    arcl: float
+    """Topocentric moon–sun elongation in degrees at the moment of observation."""
+
+    arcv: float
+    """Arc of vision: moon altitude minus sun altitude (degrees) at the moment of observation."""
+
+    W: float
+    """Crescent width in arcminutes: SD × (1 − cos ARCL), where SD is the moon's topocentric semi-diameter."""
+
+    moon_alt: float
+    """Moon altitude above the horizon in degrees at the moment of observation."""
+
+    moon_age_h: float
+    """Hours elapsed since the astronomical new moon (conjunction) at the moment of observation."""
+
+    lag_min: float
+    """Moonset lag after sunset in minutes — a proxy for the window of naked-eye crescent visibility."""
+
+    uncertain: bool
+    """True when the Yallop category is C (borderline); the month start carries a ±1-day uncertainty."""
+
+    note: str
+    """Free-text annotation explaining any uncertainty or special condition for this month start."""
+
+    days: int | None = field(default=None)
+    """Length of this month in days (difference to the next month's evening_jd); None for the last entry."""
+
+    fm_hday: int | None = field(default=None)
+    """Hebrew day-of-month on which the full moon falls (1-indexed from evening_jd); None if not found."""
+
+    fm_local_h: float | None = field(default=None)
+    """Local solar time (UT1 + longitude offset, 0–24 h) of the full moon; None if not found."""
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HebrewCalendarEngine
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class HebrewCalendarEngine:
     """
@@ -110,53 +199,63 @@ class HebrewCalendarEngine:
     Call build_calendar() to run the full pipeline and get a HebrewCalendarResult.
     """
 
-    MOON_RADIUS_KM    = 1737.4
-    AU_KM             = 149_597_870.7
-    NISAN_WINDOW_DAYS = 40.0      # latest plausible Nisan start after spring equinox
-    _SUN_STEP_DAYS    = 10.0 / 1440.0   # 10-minute sample spacing
+    MOON_RADIUS_KM = 1737.4
+    AU_KM = 149_597_870.7
+    NISAN_WINDOW_DAYS = 40.0  # latest plausible Nisan start after spring equinox
+    _SUN_STEP_DAYS = 10.0 / 1440.0  # 10-minute sample spacing
 
     SEQ_FROM_NISAN = [
-        "Nisan","Iyar","Sivan","Tammuz","Av","Elul",
-        "Tishri","Cheshvan","Kislev","Tevet","Shevat","Adar",
+        "Nisan",
+        "Iyar",
+        "Sivan",
+        "Tammuz",
+        "Av",
+        "Elul",
+        "Tishri",
+        "Cheshvan",
+        "Kislev",
+        "Tevet",
+        "Shevat",
+        "Adar",
     ]
     # Leap-year sequence (from Nisan):
     # Nisan Iyar Sivan Tammuz Av Elul Tishri Cheshvan Kislev Tevet Shevat Adar-I Adar-II
 
     def __init__(self, location_key: str, start_year: int, end_year: int):
         self.start_year = start_year
-        self.end_year   = end_year
+        self.end_year = end_year
 
         loc_name, loc_lat, loc_lon = LOCATIONS[location_key]
         self.loc_name = loc_name
-        self.loc_lat  = loc_lat
-        self.loc_lon  = loc_lon
+        self.loc_lat = loc_lat
+        self.loc_lon = loc_lon
 
-        self.eph   = load("de422.bsp")
-        self.ts    = load.timescale()
-        self.sun   = self.eph["sun"]
-        self.moon  = self.eph["moon"]
+        self.eph = load("de422.bsp")
+        self.ts = load.timescale()
+        self.sun = self.eph["sun"]
+        self.moon = self.eph["moon"]
         self.earth = self.eph["earth"]
 
-        obs_site      = wgs84.latlon(loc_lat * N, loc_lon * E)
+        obs_site = wgs84.latlon(loc_lat * N, loc_lon * E)
         self.observer = self.earth + obs_site
 
         # scan range: one extra year each side to get complete Hebrew years
-        self._scan_y0      = start_year - 1
-        self._scan_y1      = end_year   + 1
-        self._t_scan_start = self.ts.tt(self._scan_y0, 2,  1)
-        self._t_scan_end   = self.ts.tt(self._scan_y1, 10, 1)
+        self._scan_y0 = start_year - 1
+        self._scan_y1 = end_year + 1
+        self._t_scan_start = self.ts.tt(self._scan_y0, 2, 1)
+        self._t_scan_end = self.ts.tt(self._scan_y1, 10, 1)
 
         # populated by _precompute_sun_altitudes()
-        self._sun_jds  = None
+        self._sun_jds = None
         self._sun_alts = None
 
     # ── Low-level crossing helpers ────────────────────────────────────────────
 
     def _body_alts(self, body, jd_start, jd_end, n=120):
         """Vectorised altitude array for body over [jd_start, jd_end]."""
-        jds   = np.linspace(jd_start, jd_end, n)
+        jds = np.linspace(jd_start, jd_end, n)
         t_arr = self.ts.tt_jd(jds)
-        alts  = self.observer.at(t_arr).observe(body).apparent().altaz()[0].degrees
+        alts = self.observer.at(t_arr).observe(body).apparent().altaz()[0].degrees
         return jds, alts
 
     def _crossing_time(self, body, target_alt, jd_start, jd_end, rising=False):
@@ -169,14 +268,16 @@ class HebrewCalendarEngine:
         shifted = alts - target_alt
         for i in range(len(shifted) - 1):
             a0, a1 = shifted[i], shifted[i + 1]
-            cross  = (a0 < 0 and a1 >= 0) if rising else (a0 >= 0 and a1 < 0)
+            cross = (a0 < 0 and a1 >= 0) if rising else (a0 >= 0 and a1 < 0)
             if not cross:
                 continue
             lo, hi = jds[i], jds[i + 1]
             for _ in range(30):
-                mid   = (lo + hi) / 2
+                mid = (lo + hi) / 2
                 t_mid = self.ts.tt_jd(mid)
-                a_mid = self.observer.at(t_mid).observe(body).apparent().altaz()[0].degrees
+                a_mid = (
+                    self.observer.at(t_mid).observe(body).apparent().altaz()[0].degrees
+                )
                 if (a_mid - target_alt) * a0 > 0:
                     lo = mid
                 else:
@@ -190,42 +291,59 @@ class HebrewCalendarEngine:
         vectorised Skyfield call.  Subsequent find_sunset / find_sun_at_minus5
         calls use this cache and only need a short bisection refinement.
         """
-        jd0 = self._t_scan_start.tt - 1.0   # 1-day lead
-        jd1 = self._t_scan_end.tt   + 5.0   # 5-day tail (crescent look-ahead)
-        n   = int((jd1 - jd0) / self._SUN_STEP_DAYS) + 2
-        print(f"Precomputing solar altitudes ({n:,} samples at 10-min spacing)…",
-              flush=True)
-        self._sun_jds  = np.linspace(jd0, jd1, n)
-        self._sun_alts = (self.observer.at(self.ts.tt_jd(self._sun_jds))
-                          .observe(self.sun).apparent().altaz()[0].degrees)
+        jd0 = self._t_scan_start.tt - 1.0  # 1-day lead
+        jd1 = self._t_scan_end.tt + 5.0  # 5-day tail (crescent look-ahead)
+        n = int((jd1 - jd0) / self._SUN_STEP_DAYS) + 2
+        print(
+            f"Precomputing solar altitudes ({n:,} samples at 10-min spacing)…",
+            flush=True,
+        )
+        self._sun_jds = np.linspace(jd0, jd1, n)
+        self._sun_alts = (
+            self.observer.at(self.ts.tt_jd(self._sun_jds))
+            .observe(self.sun)
+            .apparent()
+            .altaz()[0]
+            .degrees
+        )
         print("  Done.\n")
 
-    def _sun_crossing_cached(self, target_alt: float, jd_start: float,
-                             jd_end: float, rising: bool = False):
+    def _sun_crossing_cached(
+        self, target_alt: float, jd_start: float, jd_end: float, rising: bool = False
+    ):
         """
         Solar crossing from the precomputed altitude cache.
         Finds the bracket via searchsorted, then refines with bisection
         (individual Skyfield calls only inside the narrow ≤10-min bracket).
         """
-        assert self._sun_jds is not None and self._sun_alts is not None, \
-            "_precompute_sun_altitudes() must be called before find_sunset/find_sun_at_minus5"
+        assert (
+            self._sun_jds is not None and self._sun_alts is not None
+        ), "_precompute_sun_altitudes() must be called before find_sunset/find_sun_at_minus5"
         i0 = max(0, int(np.searchsorted(self._sun_jds, jd_start)) - 1)
-        i1 = min(len(self._sun_jds) - 1,
-                 int(np.searchsorted(self._sun_jds, jd_end, side='right')) + 1)
-        shifted = self._sun_alts[i0:i1 + 1] - target_alt
-        jds_w   = self._sun_jds[i0:i1 + 1]
+        i1 = min(
+            len(self._sun_jds) - 1,
+            int(np.searchsorted(self._sun_jds, jd_end, side="right")) + 1,
+        )
+        shifted = self._sun_alts[i0 : i1 + 1] - target_alt
+        jds_w = self._sun_jds[i0 : i1 + 1]
         for i in range(len(shifted) - 1):
             a0, a1 = shifted[i], shifted[i + 1]
-            cross  = (a0 < 0 and a1 >= 0) if rising else (a0 >= 0 and a1 < 0)
+            cross = (a0 < 0 and a1 >= 0) if rising else (a0 >= 0 and a1 < 0)
             if not cross:
                 continue
-            lo, hi  = jds_w[i], jds_w[i + 1]
+            lo, hi = jds_w[i], jds_w[i + 1]
             a0_sign = a0
-            for _ in range(18):   # 10-min bracket → <0.002 min precision
-                mid   = (lo + hi) / 2
+            for _ in range(18):  # 10-min bracket → <0.002 min precision
+                mid = (lo + hi) / 2
                 t_mid = self.ts.tt_jd(mid)
-                a_mid = (self.observer.at(t_mid).observe(self.sun).apparent()
-                         .altaz()[0].degrees - target_alt)
+                a_mid = (
+                    self.observer.at(t_mid)
+                    .observe(self.sun)
+                    .apparent()
+                    .altaz()[0]
+                    .degrees
+                    - target_alt
+                )
                 if a_mid * a0_sign > 0:
                     lo = mid
                 else:
@@ -273,29 +391,47 @@ class HebrewCalendarEngine:
         Returns dict with q, cat, arcl, arcv, W, moon_alt, sun_alt.
         """
         a_moon = self.observer.at(t_obs).observe(self.moon).apparent()
-        a_sun  = self.observer.at(t_obs).observe(self.sun).apparent()
+        a_sun = self.observer.at(t_obs).observe(self.sun).apparent()
 
         alt_m, _, dist_m = a_moon.altaz()
-        alt_s, _,  _     = a_sun.altaz()
+        alt_s, _, _ = a_sun.altaz()
 
         arcl = a_moon.separation_from(a_sun).degrees
         arcv = alt_m.degrees - alt_s.degrees
 
-        sd_arcmin = np.degrees(np.arctan(
-            self.MOON_RADIUS_KM / (dist_m.au * self.AU_KM)
-        )) * 60
-        W = sd_arcmin * (1.0 - np.cos(np.radians(arcl)))   # crescent width, arcmin
+        sd_arcmin = (
+            np.degrees(np.arctan(self.MOON_RADIUS_KM / (dist_m.au * self.AU_KM))) * 60
+        )
+        W = sd_arcmin * (1.0 - np.cos(np.radians(arcl)))  # crescent width, arcmin
 
+        # Yallop (1997) q-factor.  The polynomial in W is the empirical "best-fit
+        # arc of vision" (ARCV_min) derived by Yallop from Ilyas's (1994) dataset of
+        # 295 historical crescent observations.  Its coefficients — 11.8371, 6.3226,
+        # 0.7319, 0.1018 — are published constants from NAO Technical Note 69 (1997),
+        # Table 1, and should not be adjusted.  q > 0 means the actual arc of vision
+        # (ARCV) exceeds the minimum needed for naked-eye visibility at crescent width W.
         q = arcv - (11.8371 - 6.3226 * np.sqrt(W) + 0.7319 * W**3 - 0.1018 * W**4)
 
-        if   q >  0.216: cat = "A"
-        elif q > -0.014: cat = "B"
-        elif q > -0.160: cat = "C"
-        elif q > -0.232: cat = "D"
-        else:            cat = "E"
+        if q > 0.216:
+            cat = "A"
+        elif q > -0.014:
+            cat = "B"
+        elif q > -0.160:
+            cat = "C"
+        elif q > -0.232:
+            cat = "D"
+        else:
+            cat = "E"
 
-        return {"q": q, "cat": cat, "arcl": arcl, "arcv": arcv,
-                "W": W, "moon_alt": alt_m.degrees, "sun_alt": alt_s.degrees}
+        return {
+            "q": q,
+            "cat": cat,
+            "arcl": arcl,
+            "arcv": arcv,
+            "W": W,
+            "moon_alt": alt_m.degrees,
+            "sun_alt": alt_s.degrees,
+        }
 
     # ── First-crescent finder ─────────────────────────────────────────────────
 
@@ -314,9 +450,9 @@ class HebrewCalendarEngine:
           uncertain   – True if category C (±1 day)
           note        – human-readable note
         """
-        nm_jd  = nm_t.tt
-        best   = None
-        second = None   # next day, for uncertainty
+        nm_jd = nm_t.tt
+        best = None
+        second = None  # next day, for uncertainty
 
         for offset in range(1, 4):
             cand_jd = np.floor(nm_jd) + offset
@@ -341,24 +477,27 @@ class HebrewCalendarEngine:
                 continue
 
             # Lag time (moonset – sunset)
-            t_ss    = self.find_sunset(cand_jd)
-            t_ms    = self.find_moonset(t_ss.tt) if t_ss is not None else None
-            lag_min = ((t_ms.tt - t_ss.tt) * 1440
-                       if (t_ms is not None and t_ss is not None) else 0.0)
+            t_ss = self.find_sunset(cand_jd)
+            t_ms = self.find_moonset(t_ss.tt) if t_ss is not None else None
+            lag_min = (
+                (t_ms.tt - t_ss.tt) * 1440
+                if (t_ms is not None and t_ss is not None)
+                else 0.0
+            )
 
             rec = {
                 "evening_jd": cand_jd,
-                "evening_t":  t_obs,
+                "evening_t": t_obs,
                 "day_offset": offset,
-                "yallop":     v,
+                "yallop": v,
                 "moon_age_h": moon_age_h,
-                "lag_min":    lag_min,
-                "uncertain":  False,
-                "note":       "",
+                "lag_min": lag_min,
+                "uncertain": False,
+                "note": "",
             }
 
             if v["cat"] in ("A", "B"):
-                return rec                     # definite visibility
+                return rec  # definite visibility
             elif v["cat"] == "C":
                 if best is None:
                     best = rec
@@ -384,7 +523,7 @@ class HebrewCalendarEngine:
     def _am_year_for_tishri(self, tishri_jd: float) -> int:
         """Jewish AM year that begins with this Tishri."""
         y = self.ts.tt_jd(tishri_jd).tt_calendar()[0]
-        return y + 3761   # Tishri of astronomical year y → AM y+3761
+        return y + 3761  # Tishri of astronomical year y → AM y+3761
 
     def build_calendar(self) -> "HebrewCalendarResult":
         """
@@ -400,13 +539,15 @@ class HebrewCalendarEngine:
         ts = self.ts
 
         # ── 1. New and full moons ─────────────────────────────────────────────
-        print(f"Finding new moons ({era(self._scan_y0)} Feb → {era(self._scan_y1)} Oct)…",
-              flush=True)
+        print(
+            f"Finding new moons ({era(self._scan_y0)} Feb → {era(self._scan_y1)} Oct)…",
+            flush=True,
+        )
         phase_times, phase_idx = almanac.find_discrete(
             self._t_scan_start, self._t_scan_end, almanac.moon_phases(self.eph)
         )
-        new_moons     = phase_times[phase_idx == 0]
-        full_moons    = phase_times[phase_idx == 2]
+        new_moons = phase_times[phase_idx == 0]
+        full_moons = phase_times[phase_idx == 2]
         full_moon_jds = full_moons.tt
         print(f"  Found {len(new_moons)} new moons.\n")
 
@@ -420,10 +561,12 @@ class HebrewCalendarEngine:
             fc = self.first_crescent(nm)
             if fc:
                 month_starts.append(fc)
-                print(f"  New moon {fmt_datetime(nm)}  →  "
-                      f"crescent {fmt_date(ts.tt_jd(fc['evening_jd']))}  "
-                      f"[{fc['yallop']['cat']}]  "
-                      f"{'(uncertain)' if fc['uncertain'] else ''}")
+                print(
+                    f"  New moon {fmt_datetime(nm)}  →  "
+                    f"crescent {fmt_date(ts.tt_jd(fc['evening_jd']))}  "
+                    f"[{fc['yallop']['cat']}]  "
+                    f"{'(uncertain)' if fc['uncertain'] else ''}"
+                )
         print()
 
         # ── 4. Spring equinoxes ───────────────────────────────────────────────
@@ -433,13 +576,15 @@ class HebrewCalendarEngine:
             eq = self.spring_equinox(astro_yr)
             if eq is not None:
                 equinoxes[astro_yr] = eq
-                print(f"  Spring equinox {astro_yr:+d} ({era(astro_yr)}): {fmt_datetime(eq)}")
+                print(
+                    f"  Spring equinox {astro_yr:+d} ({era(astro_yr)}): {fmt_datetime(eq)}"
+                )
         print()
 
         # ── 5. Identify 1 Nisan for each year ────────────────────────────────
-        nisan_starts = {}   # astro_year → index into month_starts[]
+        nisan_starts = {}  # astro_year → index into month_starts[]
         for astro_yr, eq_t in equinoxes.items():
-            eq_jd      = eq_t.tt
+            eq_jd = eq_t.tt
             candidates = []
             for idx, ms in enumerate(month_starts):
                 if ms["evening_jd"] > eq_jd + self.NISAN_WINDOW_DAYS:
@@ -450,15 +595,17 @@ class HebrewCalendarEngine:
             if candidates:
                 idx0 = candidates[0][0]
                 nisan_starts[astro_yr] = idx0
-                print(f"  1 Nisan {astro_yr} ({era(astro_yr)}): "
-                      f"{fmt_date(ts.tt_jd(month_starts[idx0]['evening_jd']))}  "
-                      f"(full moon ~{fmt_date(ts.tt_jd(month_starts[idx0]['evening_jd']+14.75))}  "
-                      f"equinox {fmt_date(eq_t)})")
+                print(
+                    f"  1 Nisan {astro_yr} ({era(astro_yr)}): "
+                    f"{fmt_date(ts.tt_jd(month_starts[idx0]['evening_jd']))}  "
+                    f"(full moon ~{fmt_date(ts.tt_jd(month_starts[idx0]['evening_jd']+14.75))}  "
+                    f"equinox {fmt_date(eq_t)})"
+                )
         print()
 
         # ── 6. Assign Hebrew month names ──────────────────────────────────────
         sorted_nisans = sorted(nisan_starts.items())
-        name_map = {}   # month_index → {"name": str, "nisan_yr": int}
+        name_map = {}  # month_index → {"name": str, "nisan_yr": int}
 
         for astro_yr, nisan_idx in sorted_nisans:
             for i, hname in enumerate(self.SEQ_FROM_NISAN):
@@ -470,7 +617,7 @@ class HebrewCalendarEngine:
         for k in range(len(sorted_nisans) - 1):
             yr0, idx0 = sorted_nisans[k]
             yr1, idx1 = sorted_nisans[k + 1]
-            n_months  = idx1 - idx0
+            n_months = idx1 - idx0
             if n_months == 13:
                 adar2_idx = idx0 + 12
                 if 0 <= adar2_idx < len(month_starts):
@@ -488,68 +635,65 @@ class HebrewCalendarEngine:
             if prev:
                 return self._am_year_for_tishri(month_starts[max(prev)]["evening_jd"])
             nyr = name_map[mi]["nisan_yr"]
-            return nyr + 3760   # Nisan of astro_yr nyr → AM nyr+3760 (approx)
+            return nyr + 3760  # Nisan of astro_yr nyr → AM nyr+3760 (approx)
 
         # ── 8. Build calendar list ────────────────────────────────────────────
-        calendar = []
+        calendar: list[CalendarEntry] = []
         for mi in sorted(name_map.keys()):
-            ms    = month_starts[mi]
+            ms = month_starts[mi]
             ev_jd = ms["evening_jd"]
-            ev_t  = ts.tt_jd(ev_jd)
+            ev_t = ts.tt_jd(ev_jd)
             y, mo, d = ev_t.tt_calendar()[:3]
-            calendar.append({
-                "mi":         mi,
-                "hname":      name_map[mi]["name"],
-                "am_yr":      am_year_for_month(mi),
-                "evening_jd": ev_jd,
-                "greg_d":     int(d),
-                "greg_mo":    mo,
-                "greg_yr":    y,
-                "greg_str":   fmt_date(ev_t),
-                "cat":        ms["yallop"]["cat"],
-                "q":          ms["yallop"]["q"],
-                "arcl":       ms["yallop"]["arcl"],
-                "arcv":       ms["yallop"]["arcv"],
-                "W":          ms["yallop"]["W"],
-                "moon_alt":   ms["yallop"]["moon_alt"],
-                "moon_age_h": ms["moon_age_h"],
-                "lag_min":    ms["lag_min"],
-                "uncertain":  ms["uncertain"],
-                "note":       ms["note"],
-            })
+            calendar.append(
+                CalendarEntry(
+                    mi=mi,
+                    hname=name_map[mi]["name"],
+                    am_yr=am_year_for_month(mi),
+                    evening_jd=ev_jd,
+                    greg_d=int(d),
+                    greg_mo=mo,
+                    greg_yr=y,
+                    greg_str=fmt_date(ev_t),
+                    cat=ms["yallop"]["cat"],
+                    q=ms["yallop"]["q"],
+                    arcl=ms["yallop"]["arcl"],
+                    arcv=ms["yallop"]["arcv"],
+                    W=ms["yallop"]["W"],
+                    moon_alt=ms["yallop"]["moon_alt"],
+                    moon_age_h=ms["moon_age_h"],
+                    lag_min=ms["lag_min"],
+                    uncertain=ms["uncertain"],
+                    note=ms["note"],
+                )
+            )
 
         # Month lengths (days until next month start)
         for i in range(len(calendar) - 1):
-            calendar[i]["days"] = round(
-                calendar[i + 1]["evening_jd"] - calendar[i]["evening_jd"]
+            calendar[i].days = round(
+                calendar[i + 1].evening_jd - calendar[i].evening_jd
             )
-        if calendar:
-            calendar[-1]["days"] = None
 
         # Full-moon day within each month
         for entry in calendar:
-            ev_jd  = entry["evening_jd"]
-            window = entry["days"] if entry["days"] is not None else 17
-            mask   = (full_moon_jds >= ev_jd) & (full_moon_jds < ev_jd + window)
-            hits   = np.where(mask)[0]
+            ev_jd = entry.evening_jd
+            window = entry.days if entry.days is not None else 17
+            mask = (full_moon_jds >= ev_jd) & (full_moon_jds < ev_jd + window)
+            hits = np.where(mask)[0]
             if len(hits):
                 fm_jd = full_moon_jds[hits[0]]
-                fm_t  = ts.tt_jd(fm_jd)
-                entry["fm_hday"]    = int(fm_jd - ev_jd) + 1
-                lon_offset_h        = self.loc_lon / 15.0
-                ut1_h               = (fm_t.ut1 % 1) * 24
-                entry["fm_local_h"] = (ut1_h + lon_offset_h) % 24
-            else:
-                entry["fm_hday"]    = None
-                entry["fm_local_h"] = None
+                fm_t = ts.tt_jd(fm_jd)
+                entry.fm_hday = int(fm_jd - ev_jd) + 1
+                lon_offset_h = self.loc_lon / 15.0
+                ut1_h = (fm_t.ut1 % 1) * 24
+                entry.fm_local_h = (ut1_h + lon_offset_h) % 24
 
         return HebrewCalendarResult(
-            calendar   = calendar,
-            loc_name   = self.loc_name,
-            loc_lat    = self.loc_lat,
-            loc_lon    = self.loc_lon,
-            start_year = self.start_year,
-            end_year   = self.end_year,
+            calendar=calendar,
+            loc_name=self.loc_name,
+            loc_lat=self.loc_lat,
+            loc_lon=self.loc_lon,
+            start_year=self.start_year,
+            end_year=self.end_year,
         )
 
 
@@ -557,18 +701,19 @@ class HebrewCalendarEngine:
 # HebrewCalendarResult
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class HebrewCalendarResult:
     """
     Holds the computed Hebrew calendar and handles all output formatting.
     """
 
-    calendar:   list
-    loc_name:   str
-    loc_lat:    float
-    loc_lon:    float
+    calendar: list[CalendarEntry]
+    loc_name: str
+    loc_lat: float
+    loc_lon: float
     start_year: int
-    end_year:   int
+    end_year: int
 
     SEP = "=" * 117
 
@@ -578,18 +723,21 @@ class HebrewCalendarResult:
         The Skyfield timescale is not serialised; all other fields are included.
         Numpy scalars are coerced to native Python types.
         """
+
         def _default(obj):
-            if isinstance(obj, np.floating): return float(obj)
-            if isinstance(obj, np.integer):  return int(obj)
+            if isinstance(obj, np.floating):
+                return float(obj)
+            if isinstance(obj, np.integer):
+                return int(obj)
             raise TypeError(f"Not JSON serialisable: {type(obj)}")
 
         data = {
-            "location":   self.loc_name,
-            "lat":        self.loc_lat,
-            "lon":        self.loc_lon,
+            "location": self.loc_name,
+            "lat": self.loc_lat,
+            "lon": self.loc_lon,
             "start_year": self.start_year,
-            "end_year":   self.end_year,
-            "calendar":   self.calendar,
+            "end_year": self.end_year,
+            "calendar": [asdict(e) for e in self.calendar],
         }
         Path(path).write_text(
             json.dumps(data, indent=2, ensure_ascii=False, default=_default),
@@ -604,12 +752,12 @@ class HebrewCalendarResult:
         """
         data = json.loads(Path(path).read_text(encoding="utf-8"))
         return cls(
-            calendar   = data["calendar"],
-            loc_name   = data["location"],
-            loc_lat    = data["lat"],
-            loc_lon    = data["lon"],
-            start_year = data["start_year"],
-            end_year   = data["end_year"],
+            calendar=[CalendarEntry(**e) for e in data["calendar"]],
+            loc_name=data["location"],
+            loc_lat=data["lat"],
+            loc_lon=data["lon"],
+            start_year=data["start_year"],
+            end_year=data["end_year"],
         )
 
     def hebrew_date_for_jd(self, event_jd: float):
@@ -619,74 +767,84 @@ class HebrewCalendarResult:
         """
         cal = self.calendar
         for i in range(len(cal) - 1):
-            if cal[i]["evening_jd"] <= event_jd < cal[i + 1]["evening_jd"]:
-                day_num = int(event_jd - cal[i]["evening_jd"]) + 1
-                return cal[i]["hname"], cal[i]["am_yr"], day_num
-        if cal and event_jd >= cal[-1]["evening_jd"]:
-            day_num = int(event_jd - cal[-1]["evening_jd"]) + 1
-            return cal[-1]["hname"], cal[-1]["am_yr"], day_num
+            if cal[i].evening_jd <= event_jd < cal[i + 1].evening_jd:
+                day_num = int(event_jd - cal[i].evening_jd) + 1
+                return cal[i].hname, cal[i].am_yr, day_num
+        if cal and event_jd >= cal[-1].evening_jd:
+            day_num = int(event_jd - cal[-1].evening_jd) + 1
+            return cal[-1].hname, cal[-1].am_yr, day_num
         return None, None, None
 
     def print_calendar(self):
         """Print the full annotated calendar table."""
         SEP = self.SEP
         print(SEP)
-        print(f"OBSERVATION-BASED HEBREW CALENDAR  ·  "
-              f"~{era(self.start_year)} – {era(self.end_year)}  ·  "
-              f"Observer: {self.loc_name}")
+        print(
+            f"OBSERVATION-BASED HEBREW CALENDAR  ·  "
+            f"~{era(self.start_year)} – {era(self.end_year)}  ·  "
+            f"Observer: {self.loc_name}"
+        )
         print("All dates proleptic Gregorian (evening of first crescent sighting).")
-        print("Jewish day begins at that sunset; Western date of same civil day is one day later.")
+        print(
+            "Jewish day begins at that sunset; Western date of same civil day is one day later."
+        )
         print(SEP)
         print()
 
         # Only show AM years within the requested range.
         # Nisan(start_year) sits in AM start_year+3760;
         # Tishri(end_year) starts AM end_year+3761.
-        am_first   = self.start_year + 3760
-        am_last    = self.end_year   + 3761
+        am_first = self.start_year + 3760
+        am_last = self.end_year + 3761
         current_am = None
 
         for row in self.calendar:
-            if not (am_first <= row["am_yr"] <= am_last):
+            if not (am_first <= row.am_yr <= am_last):
                 continue
 
-            if row["am_yr"] != current_am:
-                current_am = row["am_yr"]
-                astro_yr   = current_am - 3761
+            if row.am_yr != current_am:
+                current_am = row.am_yr
+                astro_yr = current_am - 3761
                 print()
-                print(f"  ── Jewish Year AM {current_am}  "
-                      f"({era(astro_yr)} / {era(astro_yr+1)}) ──")
+                print(
+                    f"  ── Jewish Year AM {current_am}  "
+                    f"({era(astro_yr)} / {era(astro_yr+1)}) ──"
+                )
                 print()
-                print(f"  {'Month':<14} {'Evening of first crescent':>26}  "
-                      f"{'Full moon (d  LST)':>18}  "
-                      f"{'Cat':>3}  {'q':>6}  {'ARCL':>6}  {'ARCV':>6}  "
-                      f"{'W′':>5}  {'Age(h)':>7}  {'Lag′':>5}")
+                print(
+                    f"  {'Month':<14} {'Evening of first crescent':>26}  "
+                    f"{'Full moon (d  LST)':>18}  "
+                    f"{'Cat':>3}  {'q':>6}  {'ARCL':>6}  {'ARCV':>6}  "
+                    f"{'W′':>5}  {'Age(h)':>7}  {'Lag′':>5}"
+                )
                 print("  " + "─" * 104)
 
-            eb      = "±1d" if row["uncertain"] else "   "
+            eb = "±1d" if row.uncertain else "   "
             special = ""
-            if row["hname"] == "Tishri":
+            if row.hname == "Tishri":
                 special = " ← Rosh Hashanah (civil new year)"
-            elif row["hname"] == "Nisan":
+            elif row.hname == "Nisan":
                 special = " ← 1 Nisan (religious new year)"
-            elif row["hname"] == "Adar II":
+            elif row.hname == "Adar II":
                 special = " ← intercalary month (leap year)"
 
-            if row["fm_hday"] is not None:
-                fm_str = f"d{row['fm_hday']:2d}  {row['fm_local_h']:5.2f}h LST"
+            if row.fm_hday is not None:
+                fm_str = f"d{row.fm_hday:2d}  {row.fm_local_h:5.2f}h LST"
             else:
                 fm_str = "        ??       "
 
-            print(f"  1 {row['hname']:<12} {row['greg_str']:>26}  "
-                  f"{fm_str:>18}  "
-                  f"{row['cat']:>3}  "
-                  f"{row['q']:>6.3f}  "
-                  f"{row['arcl']:>6.2f}°  "
-                  f"{row['arcv']:>6.2f}°  "
-                  f"{row['W']:>5.2f}  "
-                  f"{row['moon_age_h']:>7.1f}h  "
-                  f"{row['lag_min']:>5.0f}′  "
-                  f"{eb}{special}")
+            print(
+                f"  1 {row.hname:<12} {row.greg_str:>26}  "
+                f"{fm_str:>18}  "
+                f"{row.cat:>3}  "
+                f"{row.q:>6.3f}  "
+                f"{row.arcl:>6.2f}°  "
+                f"{row.arcv:>6.2f}°  "
+                f"{row.W:>5.2f}  "
+                f"{row.moon_age_h:>7.1f}h  "
+                f"{row.lag_min:>5.0f}′  "
+                f"{eb}{special}"
+            )
 
     def print_notes(self):
         """Print the methodology and error-bar notes."""
