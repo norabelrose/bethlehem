@@ -22,10 +22,11 @@ Years use astronomical year numbering:
   3 AD = 3,   etc.
 
 Examples:
-  python hebrew_calendar.py                           # default: -3 to 0 (4 BC – 1 BC)
+  python hebrew_calendar.py                               # default: -3 to 0 (4 BC – 1 BC)
   python hebrew_calendar.py --start -5 --end 0
   python hebrew_calendar.py --location babylon
   python hebrew_calendar.py --location avaris --start -5 --end 0
+  python hebrew_calendar.py --equinox-buffer 2            # full moon may precede equinox by 2 days
 """,
     )
     p.add_argument(
@@ -47,6 +48,16 @@ Examples:
         choices=LOCATIONS.keys(),
         default="jerusalem",
         help="observation site (default: jerusalem)",
+    )
+    p.add_argument(
+        "--equinox-buffer",
+        type=float,
+        default=3.0,
+        metavar="DAYS",
+        help=(
+            "allow the Nisan full moon to precede the spring equinox by this many days "
+            "(accounts for imprecise ancient equinox reckoning; default: 3)"
+        ),
     )
     p.add_argument(
         "--output",
@@ -98,7 +109,10 @@ def print_key_events(result: "HebrewCalendarResult", ts) -> None:
 
 def main():
     args = parse_args()
-    engine = HebrewCalendarEngine(args.location, args.start, args.end)
+    engine = HebrewCalendarEngine(
+        args.location, args.start, args.end,
+        equinox_buffer_days=args.equinox_buffer,
+    )
     result = engine.build_calendar()
     result.print_calendar()
     result.print_notes()

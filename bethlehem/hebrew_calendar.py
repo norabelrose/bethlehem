@@ -187,6 +187,11 @@ class CalendarEntry:
     fm_local_h: float | None = field(default=None)
     """Local solar time (UT1 + longitude offset, 0–24 h) of the full moon; None if not found."""
 
+    intercalation_uncertain: bool = field(default=False)
+    """True when this month is 1 Nisan and the full moon fell within one day of the spring
+    equinox, making the intercalation decision (add Adar II or not) genuinely ambiguous.
+    In such years every subsequent month carries a ±1-month placement uncertainty."""
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HebrewCalendarEngine
@@ -202,8 +207,7 @@ class HebrewCalendarEngine:
     MOON_RADIUS_KM = 1737.4
     AU_KM = 149_597_870.7
     NISAN_WINDOW_DAYS = 40.0  # latest plausible Nisan start after spring equinox
-    _SUN_STEP_DAYS = 10.0 / 1440.0  # 10-minute sample spacing
-
+    INTERCALATION_BOUNDARY_DAYS = 1.0  # flag intercalation as uncertain if full moon is within this many days of the equinox
     SEQ_FROM_NISAN = [
         "Nisan",
         "Iyar",
@@ -221,9 +225,32 @@ class HebrewCalendarEngine:
     # Leap-year sequence (from Nisan):
     # Nisan Iyar Sivan Tammuz Av Elul Tishri Cheshvan Kislev Tevet Shevat Adar-I Adar-II
 
-    def __init__(self, location_key: str, start_year: int, end_year: int):
+    def __init__(
+        self,
+        location_key: str,
+        start_year: int,
+        end_year: int,
+        equinox_buffer_days: float = 0.0,
+    ):
+        """
+        Parameters
+        ----------
+        location_key : str
+            Key into LOCATIONS (e.g. ``"jerusalem"``).
+        start_year, end_year : int
+            Astronomical years (0 = 1 BC) of the period of interest.
+        equinox_buffer_days : float
+            Ancient observers could not pinpoint the equinox to the hour; they
+            used shadow lengths, star risings, or tradition, and may have placed
+            the tekufah a day or two late.  Setting this to *n* allows a month
+            whose full moon falls up to *n* days **before** the astronomical
+            equinox to still qualify as Nisan — equivalent to assuming the
+            ancient calendar reckoned the equinox that many days later than it
+            actually occurred.  Default 0 (pure astronomical equinox rule).
+        """
         self.start_year = start_year
         self.end_year = end_year
+        self.equinox_buffer_days = equinox_buffer_days
 
         loc_name, loc_lat, loc_lon = LOCATIONS[location_key]
         self.loc_name = loc_name
@@ -244,10 +271,6 @@ class HebrewCalendarEngine:
         self._scan_y1 = end_year + 1
         self._t_scan_start = self.ts.tt(self._scan_y0, 2, 1)
         self._t_scan_end = self.ts.tt(self._scan_y1, 10, 1)
-
-        # populated by _precompute_sun_altitudes()
-        self._sun_jds = None
-        self._sun_alts = None
 
     # ── Low-level crossing helpers ────────────────────────────────────────────
 
@@ -285,72 +308,6 @@ class HebrewCalendarEngine:
             return self.ts.tt_jd((lo + hi) / 2)
         return None
 
-    def _precompute_sun_altitudes(self):
-        """
-        Sample sun altitude at 10-min intervals over the full scan range in one
-        vectorised Skyfield call.  Subsequent find_sunset / find_sun_at_minus5
-        calls use this cache and only need a short bisection refinement.
-        """
-        jd0 = self._t_scan_start.tt - 1.0  # 1-day lead
-        jd1 = self._t_scan_end.tt + 5.0  # 5-day tail (crescent look-ahead)
-        n = int((jd1 - jd0) / self._SUN_STEP_DAYS) + 2
-        print(
-            f"Precomputing solar altitudes ({n:,} samples at 10-min spacing)…",
-            flush=True,
-        )
-        self._sun_jds = np.linspace(jd0, jd1, n)
-        self._sun_alts = (
-            self.observer.at(self.ts.tt_jd(self._sun_jds))
-            .observe(self.sun)
-            .apparent()
-            .altaz()[0]
-            .degrees
-        )
-        print("  Done.\n")
-
-    def _sun_crossing_cached(
-        self, target_alt: float, jd_start: float, jd_end: float, rising: bool = False
-    ):
-        """
-        Solar crossing from the precomputed altitude cache.
-        Finds the bracket via searchsorted, then refines with bisection
-        (individual Skyfield calls only inside the narrow ≤10-min bracket).
-        """
-        assert (
-            self._sun_jds is not None and self._sun_alts is not None
-        ), "_precompute_sun_altitudes() must be called before find_sunset/find_sun_at_minus5"
-        i0 = max(0, int(np.searchsorted(self._sun_jds, jd_start)) - 1)
-        i1 = min(
-            len(self._sun_jds) - 1,
-            int(np.searchsorted(self._sun_jds, jd_end, side="right")) + 1,
-        )
-        shifted = self._sun_alts[i0 : i1 + 1] - target_alt
-        jds_w = self._sun_jds[i0 : i1 + 1]
-        for i in range(len(shifted) - 1):
-            a0, a1 = shifted[i], shifted[i + 1]
-            cross = (a0 < 0 and a1 >= 0) if rising else (a0 >= 0 and a1 < 0)
-            if not cross:
-                continue
-            lo, hi = jds_w[i], jds_w[i + 1]
-            a0_sign = a0
-            for _ in range(18):  # 10-min bracket → <0.002 min precision
-                mid = (lo + hi) / 2
-                t_mid = self.ts.tt_jd(mid)
-                a_mid = (
-                    self.observer.at(t_mid)
-                    .observe(self.sun)
-                    .apparent()
-                    .altaz()[0]
-                    .degrees
-                    - target_alt
-                )
-                if a_mid * a0_sign > 0:
-                    lo = mid
-                else:
-                    hi = mid
-            return self.ts.tt_jd((lo + hi) / 2)
-        return None
-
     # ── Astronomical event finders ────────────────────────────────────────────
 
     # NOTE on JD convention: floor(JD) is *noon* TT of that Julian Day.
@@ -362,12 +319,12 @@ class HebrewCalendarEngine:
     def find_sunset(self, date_jd: float):
         """Sunset TT on the evening of the Julian Day containing date_jd."""
         d0 = np.floor(date_jd)
-        return self._sun_crossing_cached(0.0, d0, d0 + 1.5, rising=False)
+        return self._crossing_time(self.sun, 0.0, d0, d0 + 1.5, rising=False)
 
     def find_sun_at_minus5(self, date_jd: float):
         """When sun descends through –5° on the evening of date_jd."""
         d0 = np.floor(date_jd)
-        return self._sun_crossing_cached(-5.0, d0, d0 + 1.5, rising=False)
+        return self._crossing_time(self.sun, -5.0, d0, d0 + 1.5, rising=False)
 
     def find_moonset(self, after_jd: float):
         """First moonset at or after after_jd (a TT JD, e.g. sunset time)."""
@@ -529,11 +486,10 @@ class HebrewCalendarEngine:
         """
         Run the full pipeline:
           1. Find all new/full moons in the scan range.
-          2. Precompute solar altitudes.
-          3. Determine first-crescent date for each new moon.
-          4. Compute spring equinoxes and identify 1 Nisan for each year.
-          5. Assign Hebrew month names and AM years.
-          6. Attach month lengths and full-moon dates.
+          2. Determine first-crescent date for each new moon.
+          3. Compute spring equinoxes and identify 1 Nisan for each year.
+          4. Assign Hebrew month names and AM years.
+          5. Attach month lengths and full-moon dates.
         Returns a HebrewCalendarResult.
         """
         ts = self.ts
@@ -551,25 +507,23 @@ class HebrewCalendarEngine:
         full_moon_jds = full_moons.tt
         print(f"  Found {len(new_moons)} new moons.\n")
 
-        # ── 2. Solar altitude cache ───────────────────────────────────────────
-        self._precompute_sun_altitudes()
-
-        # ── 3. First-crescent date per new moon ───────────────────────────────
-        print("Computing first-crescent visibility for each month…", flush=True)
+        # ── 2. First-crescent date per new moon ───────────────────────────────
+        n_moons = len(new_moons)
+        print(f"Computing first-crescent visibility for {n_moons} new moons…", flush=True)
         month_starts = []
-        for nm in new_moons:
+        for i, nm in enumerate(new_moons):
+            print(
+                f"\r  [{i+1:{len(str(n_moons))}d}/{n_moons}]"
+                f"  {100*(i+1)/n_moons:5.1f}%  {fmt_date(nm)}  ",
+                end="",
+                flush=True,
+            )
             fc = self.first_crescent(nm)
             if fc:
                 month_starts.append(fc)
-                print(
-                    f"  New moon {fmt_datetime(nm)}  →  "
-                    f"crescent {fmt_date(ts.tt_jd(fc['evening_jd']))}  "
-                    f"[{fc['yallop']['cat']}]  "
-                    f"{'(uncertain)' if fc['uncertain'] else ''}"
-                )
-        print()
+        print(f"\r  Done — {len(month_starts)} months found.{' ' * 40}")
 
-        # ── 4. Spring equinoxes ───────────────────────────────────────────────
+        # ── 3. Spring equinoxes ───────────────────────────────────────────────
         print("Computing spring equinoxes…", flush=True)
         equinoxes = {}
         for astro_yr in range(self.start_year - 1, self.end_year + 2):
@@ -581,29 +535,55 @@ class HebrewCalendarEngine:
                 )
         print()
 
-        # ── 5. Identify 1 Nisan for each year ────────────────────────────────
-        nisan_starts = {}  # astro_year → index into month_starts[]
+        # ── 4. Identify 1 Nisan for each year ────────────────────────────────
+        nisan_starts = {}           # astro_year → index into month_starts[]
+        nisan_intercalation_uncertain = set()  # astro years with boundary full moon
         for astro_yr, eq_t in equinoxes.items():
             eq_jd = eq_t.tt
             candidates = []
             for idx, ms in enumerate(month_starts):
                 if ms["evening_jd"] > eq_jd + self.NISAN_WINDOW_DAYS:
                     break
-                fm_approx = ms["evening_jd"] + 14.75
-                if fm_approx >= eq_jd:
-                    candidates.append((idx, fm_approx))
+                # Use the actual computed full moon rather than a fixed offset.
+                # The crescent is sighted 1–3 days after conjunction; full moon is
+                # ~14.77 days after conjunction, so ~12–14 days after the crescent
+                # evening.  The old "+14.75" approximation overstated this by 1–3
+                # days and could misplace the intercalation boundary.
+                ev_jd = ms["evening_jd"]
+                fm_mask = (full_moon_jds >= ev_jd) & (full_moon_jds < ev_jd + 17)
+                fm_hits = np.where(fm_mask)[0]
+                if len(fm_hits) == 0:
+                    # No full moon in window — fall back with a warning.
+                    print(f"  WARNING: no full moon found for month at {fmt_date(ts.tt_jd(ev_jd))}; skipping.")
+                    continue
+                fm_jd = full_moon_jds[fm_hits[0]]
+                # Accept this month as Nisan if its full moon falls on or after
+                # the adjusted equinox threshold (equinox minus the buffer).
+                if fm_jd >= eq_jd - self.equinox_buffer_days:
+                    candidates.append((idx, fm_jd))
             if candidates:
-                idx0 = candidates[0][0]
+                idx0, fm_jd0 = candidates[0]
                 nisan_starts[astro_yr] = idx0
+                # Flag as uncertain if the full moon is near the effective threshold.
+                threshold = eq_jd - self.equinox_buffer_days
+                boundary = abs(fm_jd0 - threshold) < self.INTERCALATION_BOUNDARY_DAYS
+                if boundary:
+                    nisan_intercalation_uncertain.add(astro_yr)
+                flag = (
+                    f"  ⚠ intercalation uncertain"
+                    f" (full moon within {self.INTERCALATION_BOUNDARY_DAYS:.0f}d"
+                    f" of threshold)"
+                ) if boundary else ""
                 print(
                     f"  1 Nisan {astro_yr} ({era(astro_yr)}): "
                     f"{fmt_date(ts.tt_jd(month_starts[idx0]['evening_jd']))}  "
-                    f"(full moon ~{fmt_date(ts.tt_jd(month_starts[idx0]['evening_jd']+14.75))}  "
-                    f"equinox {fmt_date(eq_t)})"
+                    f"(full moon {fmt_date(ts.tt_jd(fm_jd0))}"
+                    f"  equinox {fmt_date(eq_t)}"
+                    f"  buf {self.equinox_buffer_days:+.1f}d){flag}"
                 )
         print()
 
-        # ── 6. Assign Hebrew month names ──────────────────────────────────────
+        # ── 5. Assign Hebrew month names ──────────────────────────────────────
         sorted_nisans = sorted(nisan_starts.items())
         name_map = {}  # month_index → {"name": str, "nisan_yr": int}
 
@@ -625,7 +605,7 @@ class HebrewCalendarEngine:
             elif n_months != 12:
                 print(f"  NOTE: {n_months} months between Nisan {yr0} and Nisan {yr1}")
 
-        # ── 7. Assign AM years via Tishri anchors ─────────────────────────────
+        # ── 6. Assign AM years via Tishri anchors ─────────────────────────────
         tishri_indices = sorted(
             mi for mi, v in name_map.items() if v["name"] == "Tishri"
         )
@@ -637,7 +617,7 @@ class HebrewCalendarEngine:
             nyr = name_map[mi]["nisan_yr"]
             return nyr + 3760  # Nisan of astro_yr nyr → AM nyr+3760 (approx)
 
-        # ── 8. Build calendar list ────────────────────────────────────────────
+        # ── 7. Build calendar list ────────────────────────────────────────────
         calendar: list[CalendarEntry] = []
         for mi in sorted(name_map.keys()):
             ms = month_starts[mi]
@@ -664,6 +644,10 @@ class HebrewCalendarEngine:
                     lag_min=ms["lag_min"],
                     uncertain=ms["uncertain"],
                     note=ms["note"],
+                    intercalation_uncertain=(
+                        name_map[mi]["name"] == "Nisan"
+                        and name_map[mi]["nisan_yr"] in nisan_intercalation_uncertain
+                    ),
                 )
             )
 
