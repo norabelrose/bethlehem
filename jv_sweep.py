@@ -4,24 +4,27 @@ jv_sweep.py
 
 Sweep the full DE422 ephemeris (~3000 BC – 3000 AD) for every
 Jupiter–Venus conjunction whose closest approach as seen from a chosen
-city is < 1 arcminute and which is visible from that city.
+city is below a configurable separation threshold and which is visible
+from that city.
 
 Usage:
-  python jv_sweep.py                    # default: Jerusalem
+  python jv_sweep.py                           # default: Jerusalem, 2′
   python jv_sweep.py babylon
-  python jv_sweep.py --list             # show available cities
+  python jv_sweep.py --threshold 0.5           # 0.5 arcminutes
+  python jv_sweep.py --list                    # show available cities
   python jv_sweep.py --lat 41.9 --lon 12.5 --name Rome
 
 Visibility criteria (both must hold):
   1. Solar elongation of Jupiter > 11° at closest approach
      (Jupiter's arcus visionis — same threshold as heliacal risings)
-  2. The < 1′ window overlaps with a moment when the Sun is below −6°
-     (astronomical twilight or darker) AND Jupiter is above the horizon
+  2. The sub-threshold window overlaps with a moment when the Sun is
+     below −6° (astronomical twilight or darker) AND Jupiter is above
+     the horizon
 
 Algorithm — three phases:
   Phase 1  Daily geocentric scan — finds candidate windows (sep < 1.5°)
   Phase 2  1-minute topocentric scan within each candidate window
-  Phase 3  Bisection for precise entry/exit of the < 1′ interval,
+  Phase 3  Bisection for precise entry/exit of the < 2′ interval,
            visibility check, then print
 
 Results are printed immediately as each qualifying event is found.
@@ -50,7 +53,7 @@ CITIES = {
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 parser = argparse.ArgumentParser(
-    description="Sweep DE422 for Jupiter–Venus conjunctions < 1′ visible from an ancient city.",
+    description="Sweep DE422 for Jupiter–Venus conjunctions below a separation threshold, visible from an ancient city.",
     formatter_class=argparse.RawDescriptionHelpFormatter,
     epilog="Available cities:\n"
     + "\n".join(
@@ -76,6 +79,13 @@ parser.add_argument(
     metavar="NAME",
     default="Custom site",
     help="Display name for a custom location",
+)
+parser.add_argument(
+    "--threshold",
+    type=float,
+    metavar="ARCMIN",
+    default=2.0,
+    help="Separation threshold in arcminutes (default: 2.0)",
 )
 
 args = parser.parse_args()
@@ -179,7 +189,7 @@ def site_jup_alt(jd_arr: np.ndarray) -> np.ndarray:
 
 
 # ── Bisection for threshold crossing ─────────────────────────────────────────
-ARCMIN = 1.0 / 60.0  # 1 arcminute in degrees
+ARCMIN = 1.0 / 60.0  # unit conversion: 1 arcminute in degrees
 
 
 def bisect_sep(
@@ -208,13 +218,14 @@ JD_START = ts.tt(-3000, 11, 14).tt  # inside DE422 lower bound
 JD_END = ts.tt(3000, 1, 1).tt  # inside DE422 upper bound
 
 THRESH_COARSE = 1.5  # deg — geocentric daily trigger
-THRESH_FINE = ARCMIN  # deg — 1 arcminute
+THRESH_FINE = args.threshold * ARCMIN  # deg — configurable, default 1 arcminute
+THRESH_LABEL = f"{args.threshold:g}′"  # display string, e.g. "1′" or "0.5′"
 AV_JUP = 11.0  # deg — Jupiter arcus visionis
 NIGHT_ALT = -6.0  # deg — Sun must reach this to count as night
 
 total_days = int(JD_END - JD_START)
 print(f"Scan range : {era(-3000)} to {era(3000)}  (~{total_days:,} days)")
-print(f"Target     : closest approach < 1′ as seen from {obs_name}")
+print(f"Target     : closest approach < {THRESH_LABEL} as seen from {obs_name}")
 print(
     f"Visibility : elongation > {AV_JUP}°  AND  night overlap (sun < {NIGHT_ALT}°,"
     f" Jupiter > 0°)\n",
@@ -277,10 +288,12 @@ for jd_lo, jd_hi in windows:
 
     # Bisect precise entry and exit
     jd_en = (
-        bisect_sep(jd_f[i_en - 1], jd_f[i_en], entering=True) if i_en > 0 else jd_f[0]
+        bisect_sep(jd_f[i_en - 1], jd_f[i_en], entering=True, threshold=THRESH_FINE)
+        if i_en > 0
+        else jd_f[0]
     )
     jd_ex = (
-        bisect_sep(jd_f[i_ex], jd_f[i_ex + 1], entering=False)
+        bisect_sep(jd_f[i_ex], jd_f[i_ex + 1], entering=False, threshold=THRESH_FINE)
         if i_ex < n_pts - 1
         else jd_f[-1]
     )
@@ -356,7 +369,7 @@ for jd_lo, jd_hi in windows:
         f"   az {float(az_v.degrees[0]):6.2f}°"
     )
     print(f"    Sky at closest approach  : {sky_cond}")
-    print("    Within 1′ of separation:")
+    print(f"    Within {THRESH_LABEL} of separation:")
     print(f"      Enter  : {fmt(t_en_obj, hhmm=True)}" f"  (local {lst_str(t_en_obj)})")
     print(f"      Leave  : {fmt(t_ex_obj, hhmm=True)}" f"  (local {lst_str(t_ex_obj)})")
     print(f"      Duration : {dur_min:.1f} min")
@@ -364,7 +377,7 @@ for jd_lo, jd_hi in windows:
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 print()
-print(f"TOTAL Jupiter–Venus conjunctions < 1′ visible from {obs_name} : {found}")
+print(f"TOTAL Jupiter–Venus conjunctions < {THRESH_LABEL} visible from {obs_name} : {found}")
 print(
     f"  Range      : {era(-3000)} to {era(3000)}"
     f"  (~{total_days // 365} years, DE422 ephemeris)"
