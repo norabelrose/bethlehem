@@ -31,6 +31,7 @@ sun = eph["sun"]
 earth = eph["earth"]
 jup = eph["jupiter barycenter"]
 ven = eph["venus barycenter"]
+moon = eph["moon"]
 
 # Regulus (α Leonis) J2000.0  —  proper motion negligible over this span
 regulus = Star(ra_hours=(10, 8, 22.311), dec_degrees=(11, 58, 1.95))
@@ -162,35 +163,11 @@ morning_jer = delta_lon > 180  # boolean array
 SEP = "=" * 72
 
 # ---------------------------------------------------------------------------
-# Event 1: Jupiter–Venus closest conjunction
+# Event 1: Jupiter–Venus conjunctions (all local minima < 2°)
 # ---------------------------------------------------------------------------
 print(SEP)
-print("EVENT 1: JUPITER–VENUS CLOSEST CONJUNCTION")
+print("EVENT 1: JUPITER–VENUS CONJUNCTIONS")
 print(SEP)
-
-min_idx = int(np.argmin(jv_sep_jer))
-
-# Zoom ±4 days, 1-minute resolution
-z0 = jd_daily[max(0, min_idx - 4)]
-z1 = jd_daily[min(n_days - 1, min_idx + 4)]
-jd_z = np.linspace(z0, z1, 11520)  # 8 days × 1440 min/day
-tz = ts.tt_jd(jd_z)
-
-zv_jer = sep_arr(jerusalem, jup, ven, tz)
-zv_bab = sep_arr(babylon, jup, ven, tz)
-
-mi_jer = int(np.argmin(zv_jer))
-mi_bab = int(np.argmin(zv_bab))
-
-t_jv_jer = tz[mi_jer]
-t_jv_bab = tz[mi_bab]
-
-# Detailed position at conjunction
-jup_lon_c = ecl_lon_arr(jerusalem, jup, ts.tt_jd(np.array([jd_z[mi_jer]])))[0]
-ven_lon_c = ecl_lon_arr(jerusalem, ven, ts.tt_jd(np.array([jd_z[mi_jer]])))[0]
-jup_lat_c = ecl_lat_arr(jerusalem, jup, ts.tt_jd(np.array([jd_z[mi_jer]])))[0]
-ven_lat_c = ecl_lat_arr(jerusalem, ven, ts.tt_jd(np.array([jd_z[mi_jer]])))[0]
-elong_c = elong_arr(jerusalem, jup, ts.tt_jd(np.array([jd_z[mi_jer]])))[0]
 
 
 def _lst_str(t, lon_deg):
@@ -199,26 +176,12 @@ def _lst_str(t, lon_deg):
     return f"{int(h):02d}:{int((h % 1) * 60):02d}"
 
 
-_app_jup_jer = (earth + jerusalem).at(t_jv_jer).observe(jup).apparent()
-_app_ven_jer = (earth + jerusalem).at(t_jv_jer).observe(ven).apparent()
-_alt_jup_jer, _az_jup_jer, _ = _app_jup_jer.altaz(temperature_C=20, pressure_mbar=1013)
-_alt_ven_jer, _az_ven_jer, _ = _app_ven_jer.altaz(temperature_C=20, pressure_mbar=1013)
-
-_app_jup_bab = (earth + babylon).at(t_jv_bab).observe(jup).apparent()
-_app_ven_bab = (earth + babylon).at(t_jv_bab).observe(ven).apparent()
-_alt_jup_bab, _az_jup_bab, _ = _app_jup_bab.altaz(temperature_C=20, pressure_mbar=1013)
-_alt_ven_bab, _az_ven_bab, _ = _app_ven_bab.altaz(temperature_C=20, pressure_mbar=1013)
-
-# 1-arcminute window: bisect the entry and exit threshold crossings
 _1M = 1.0 / 60.0  # 1 arcminute in degrees
-_JV_WINDOW = 6 * _1M  # 6 arcminutes = 0.1° window for "close" conjunctions
+_JV_WINDOW = 6 * _1M  # 6 arcminutes threshold for extended window reporting
 
 
 def _bisect_sep_crossing(site, bodyA, bodyB, jd_lo, jd_hi, entering, threshold=_1M):
-    """Bisect to ~6-second precision the moment sep crosses threshold.
-    entering=True: sep goes from above to below threshold (entry).
-    entering=False: sep goes from below to above threshold (exit).
-    """
+    """Bisect to ~6-second precision the moment sep crosses threshold."""
     lo, hi = jd_lo, jd_hi
     for _ in range(50):
         mid = (lo + hi) / 2
@@ -232,118 +195,134 @@ def _bisect_sep_crossing(site, bodyA, bodyB, jd_lo, jd_hi, entering, threshold=_
     return ts.tt_jd((lo + hi) / 2)
 
 
-def _1m_window(site, zv):
-    """Return (t_entry, t_exit, dur_min) for the <1' window, or None if none."""
-    below = zv < _1M
-    if not np.any(below):
-        return None
-    i_en = int(np.argmax(below))
-    i_ex = len(below) - 1 - int(np.argmax(below[::-1]))
-    t_en = _bisect_sep_crossing(
-        site, jup, ven, jd_z[max(0, i_en - 1)], jd_z[i_en], entering=True
-    )
-    t_ex = _bisect_sep_crossing(
-        site, jup, ven, jd_z[i_ex], jd_z[min(len(jd_z) - 1, i_ex + 1)], entering=False
-    )
-    return t_en, t_ex, (t_ex.tt - t_en.tt) * 1440
+# Detection at 6-hour resolution (daily grid misses fast conjunctions near midnight/dawn)
+_jd_det = np.linspace(jd_daily[0], jd_daily[-1], n_days * 4)
+_jv_det = sep_arr(jerusalem, jup, ven, ts.tt_jd(_jd_det))
 
+_raw = [
+    i for i in range(1, len(_jd_det) - 1)
+    if _jv_det[i] < _jv_det[i - 1] and _jv_det[i] < _jv_det[i + 1]
+    and _jv_det[i] < 0.2
+]
+# Collapse detections within 20 days of each other to a single conjunction
+_det_jds, _prev = [], -999.0
+for i in _raw:
+    if _jd_det[i] - _prev > 20:
+        _det_jds.append(_jd_det[i])
+        _prev = _jd_det[i]
 
-def _deg_window(site, jv_sep_daily):
-    """Return (t_entry, t_exit, dur_days) for the <0.5° window using daily array."""
-    below = jv_sep_daily < _JV_WINDOW
-    if not np.any(below):
-        return None
-    i_en = int(np.argmax(below))
-    i_ex = len(below) - 1 - int(np.argmax(below[::-1]))
-    t_en = _bisect_sep_crossing(
-        site,
-        jup,
-        ven,
-        jd_daily[max(0, i_en - 1)],
-        jd_daily[i_en],
-        entering=True,
-        threshold=_JV_WINDOW,
-    )
-    t_ex = _bisect_sep_crossing(
-        site,
-        jup,
-        ven,
-        jd_daily[i_ex],
-        jd_daily[min(n_days - 1, i_ex + 1)],
-        entering=False,
-        threshold=_JV_WINDOW,
-    )
-    return t_en, t_ex, t_ex.tt - t_en.tt
+# Map detection JDs back to nearest daily-grid index for the zoom window
+jv_minima = [int(round(_jd - jd_daily[0])) for _jd in _det_jds]
+jv_minima = [i for i in jv_minima if 0 < i < n_days - 1]
 
+for conj_num, idx in enumerate(jv_minima):
+    # Zoom ±4 days, 1-minute resolution
+    z0 = jd_daily[max(0, idx - 4)]
+    z1 = jd_daily[min(n_days - 1, idx + 4)]
+    jd_z = np.linspace(z0, z1, 11520)  # 8 days × 1440 min/day
+    tz = ts.tt_jd(jd_z)
 
-_w_jer = _1m_window(jerusalem, zv_jer)
-_w_bab = _1m_window(babylon, zv_bab)
-_d_jer = _deg_window(jerusalem, jv_sep_jer)
-_d_bab = _deg_window(babylon, jv_sep_bab)
+    zv_jer = sep_arr(jerusalem, jup, ven, tz)
+    zv_bab = sep_arr(babylon, jup, ven, tz)
 
-print()
-print("  From JERUSALEM")
-print(f"    Closest approach : {fmt(t_jv_jer, hhmm=True)}")
-print(f"    Local solar time : {_lst_str(t_jv_jer, 35.2137)}")
-print(f"    Separation       : {zv_jer[mi_jer]*60:.3f}′  " f"({zv_jer[mi_jer]:.5f}°)")
-print(f"    Jupiter ecl lon  : {jup_lon_c:.3f}°   lat: {jup_lat_c:+.3f}°")
-print(f"    Venus   ecl lon  : {ven_lon_c:.3f}°   lat: {ven_lat_c:+.3f}°")
-print(f"    Jupiter elong    : {elong_c:.2f}° from Sun")
-print("    Altitude at conjunction:")
-print(
-    f"      Jupiter : alt {_alt_jup_jer.degrees:+6.2f}°   az {_az_jup_jer.degrees:6.2f}°"
-)
-print(
-    f"      Venus   : alt {_alt_ven_jer.degrees:+6.2f}°   az {_az_ven_jer.degrees:6.2f}°"
-)
-if _d_jer:
-    print(f"    Within {_JV_WINDOW}° of separation:")
-    print(
-        f"      Enter : {fmt(_d_jer[0], hhmm=True)}  (local {_lst_str(_d_jer[0], 35.2137)})"
-    )
-    print(
-        f"      Leave : {fmt(_d_jer[1], hhmm=True)}  (local {_lst_str(_d_jer[1], 35.2137)})"
-    )
-    print(f"      Duration: {_d_jer[2]:.2f} days")
-if _w_jer:
-    print("    Within 1′ of separation:")
-    print(
-        f"      Enter : {fmt(_w_jer[0], hhmm=True)}  (local {_lst_str(_w_jer[0], 35.2137)})"
-    )
-    print(
-        f"      Leave : {fmt(_w_jer[1], hhmm=True)}  (local {_lst_str(_w_jer[1], 35.2137)})"
-    )
-    print(f"      Duration: {_w_jer[2]:.1f} min")
-print()
-print("  From BABYLON")
-print(f"    Closest approach : {fmt(t_jv_bab, hhmm=True)}")
-print(f"    Local solar time : {_lst_str(t_jv_bab, 44.4215)}")
-print(f"    Separation       : {zv_bab[mi_bab]*60:.3f}′  " f"({zv_bab[mi_bab]:.5f}°)")
-print("    Altitude at conjunction:")
-print(
-    f"      Jupiter : alt {_alt_jup_bab.degrees:+6.2f}°   az {_az_jup_bab.degrees:6.2f}°"
-)
-print(
-    f"      Venus   : alt {_alt_ven_bab.degrees:+6.2f}°   az {_az_ven_bab.degrees:6.2f}°"
-)
-if _d_bab:
-    print(f"    Within {_JV_WINDOW}° of separation:")
-    print(
-        f"      Enter : {fmt(_d_bab[0], hhmm=True)}  (local {_lst_str(_d_bab[0], 44.4215)})"
-    )
-    print(
-        f"      Leave : {fmt(_d_bab[1], hhmm=True)}  (local {_lst_str(_d_bab[1], 44.4215)})"
-    )
-    print(f"      Duration: {_d_bab[2]:.2f} days")
-if _w_bab:
-    print("    Within 1′ of separation:")
-    print(
-        f"      Enter : {fmt(_w_bab[0], hhmm=True)}  (local {_lst_str(_w_bab[0], 44.4215)})"
-    )
-    print(
-        f"      Leave : {fmt(_w_bab[1], hhmm=True)}  (local {_lst_str(_w_bab[1], 44.4215)})"
-    )
-    print(f"      Duration: {_w_bab[2]:.1f} min")
+    mi_jer = int(np.argmin(zv_jer))
+    mi_bab = int(np.argmin(zv_bab))
+
+    t_jv_jer = tz[mi_jer]
+    t_jv_bab = tz[mi_bab]
+
+    jup_lon_c = ecl_lon_arr(jerusalem, jup, ts.tt_jd(np.array([jd_z[mi_jer]])))[0]
+    ven_lon_c = ecl_lon_arr(jerusalem, ven, ts.tt_jd(np.array([jd_z[mi_jer]])))[0]
+    jup_lat_c = ecl_lat_arr(jerusalem, jup, ts.tt_jd(np.array([jd_z[mi_jer]])))[0]
+    ven_lat_c = ecl_lat_arr(jerusalem, ven, ts.tt_jd(np.array([jd_z[mi_jer]])))[0]
+    elong_c = elong_arr(jerusalem, jup, ts.tt_jd(np.array([jd_z[mi_jer]])))[0]
+
+    _app_jup_jer = (earth + jerusalem).at(t_jv_jer).observe(jup).apparent()
+    _app_ven_jer = (earth + jerusalem).at(t_jv_jer).observe(ven).apparent()
+    _alt_jup_jer, _az_jup_jer, _ = _app_jup_jer.altaz(temperature_C=20, pressure_mbar=1013)
+    _alt_ven_jer, _az_ven_jer, _ = _app_ven_jer.altaz(temperature_C=20, pressure_mbar=1013)
+
+    _app_jup_bab = (earth + babylon).at(t_jv_bab).observe(jup).apparent()
+    _app_ven_bab = (earth + babylon).at(t_jv_bab).observe(ven).apparent()
+    _alt_jup_bab, _az_jup_bab, _ = _app_jup_bab.altaz(temperature_C=20, pressure_mbar=1013)
+    _alt_ven_bab, _az_ven_bab, _ = _app_ven_bab.altaz(temperature_C=20, pressure_mbar=1013)
+
+    def _1m_window(site, zv):
+        below = zv < _1M
+        if not np.any(below):
+            return None
+        i_en = int(np.argmax(below))
+        i_ex = len(below) - 1 - int(np.argmax(below[::-1]))
+        t_en = _bisect_sep_crossing(
+            site, jup, ven, jd_z[max(0, i_en - 1)], jd_z[i_en], entering=True
+        )
+        t_ex = _bisect_sep_crossing(
+            site, jup, ven, jd_z[i_ex], jd_z[min(len(jd_z) - 1, i_ex + 1)], entering=False
+        )
+        return t_en, t_ex, (t_ex.tt - t_en.tt) * 1440
+
+    def _deg_window(site, jv_sep_daily):
+        below = jv_sep_daily < _JV_WINDOW
+        if not np.any(below):
+            return None
+        i_en = int(np.argmax(below))
+        i_ex = len(below) - 1 - int(np.argmax(below[::-1]))
+        t_en = _bisect_sep_crossing(
+            site, jup, ven,
+            jd_daily[max(0, i_en - 1)], jd_daily[i_en],
+            entering=True, threshold=_JV_WINDOW,
+        )
+        t_ex = _bisect_sep_crossing(
+            site, jup, ven,
+            jd_daily[i_ex], jd_daily[min(n_days - 1, i_ex + 1)],
+            entering=False, threshold=_JV_WINDOW,
+        )
+        return t_en, t_ex, t_ex.tt - t_en.tt
+
+    _w_jer = _1m_window(jerusalem, zv_jer)
+    _w_bab = _1m_window(babylon, zv_bab)
+    _d_jer = _deg_window(jerusalem, jv_sep_jer)
+    _d_bab = _deg_window(babylon, jv_sep_bab)
+
+    print()
+    print(f"  Conjunction {conj_num + 1}  (near {fmt(times_d[idx])})")
+    print("  From JERUSALEM")
+    print(f"    Closest approach : {fmt(t_jv_jer, hhmm=True)}")
+    print(f"    Local solar time : {_lst_str(t_jv_jer, 35.2137)}")
+    print(f"    Separation       : {zv_jer[mi_jer]*60:.3f}′  ({zv_jer[mi_jer]:.5f}°)")
+    print(f"    Jupiter ecl lon  : {jup_lon_c:.3f}°   lat: {jup_lat_c:+.3f}°")
+    print(f"    Venus   ecl lon  : {ven_lon_c:.3f}°   lat: {ven_lat_c:+.3f}°")
+    print(f"    Jupiter elong    : {elong_c:.2f}° from Sun")
+    print("    Altitude at conjunction:")
+    print(f"      Jupiter : alt {_alt_jup_jer.degrees:+6.2f}°   az {_az_jup_jer.degrees:6.2f}°")
+    print(f"      Venus   : alt {_alt_ven_jer.degrees:+6.2f}°   az {_az_ven_jer.degrees:6.2f}°")
+    if _d_jer:
+        print(f"    Within {_JV_WINDOW*60:.0f}′ of separation:")
+        print(f"      Enter : {fmt(_d_jer[0], hhmm=True)}  (local {_lst_str(_d_jer[0], 35.2137)})")
+        print(f"      Leave : {fmt(_d_jer[1], hhmm=True)}  (local {_lst_str(_d_jer[1], 35.2137)})")
+        print(f"      Duration: {_d_jer[2]:.2f} days")
+    if _w_jer:
+        print("    Within 1′ of separation:")
+        print(f"      Enter : {fmt(_w_jer[0], hhmm=True)}  (local {_lst_str(_w_jer[0], 35.2137)})")
+        print(f"      Leave : {fmt(_w_jer[1], hhmm=True)}  (local {_lst_str(_w_jer[1], 35.2137)})")
+        print(f"      Duration: {_w_jer[2]:.1f} min")
+    print("  From BABYLON")
+    print(f"    Closest approach : {fmt(t_jv_bab, hhmm=True)}")
+    print(f"    Local solar time : {_lst_str(t_jv_bab, 44.4215)}")
+    print(f"    Separation       : {zv_bab[mi_bab]*60:.3f}′  ({zv_bab[mi_bab]:.5f}°)")
+    print("    Altitude at conjunction:")
+    print(f"      Jupiter : alt {_alt_jup_bab.degrees:+6.2f}°   az {_az_jup_bab.degrees:6.2f}°")
+    print(f"      Venus   : alt {_alt_ven_bab.degrees:+6.2f}°   az {_az_ven_bab.degrees:6.2f}°")
+    if _d_bab:
+        print(f"    Within {_JV_WINDOW*60:.0f}′ of separation:")
+        print(f"      Enter : {fmt(_d_bab[0], hhmm=True)}  (local {_lst_str(_d_bab[0], 44.4215)})")
+        print(f"      Leave : {fmt(_d_bab[1], hhmm=True)}  (local {_lst_str(_d_bab[1], 44.4215)})")
+        print(f"      Duration: {_d_bab[2]:.2f} days")
+    if _w_bab:
+        print("    Within 1′ of separation:")
+        print(f"      Enter : {fmt(_w_bab[0], hhmm=True)}  (local {_lst_str(_w_bab[0], 44.4215)})")
+        print(f"      Leave : {fmt(_w_bab[1], hhmm=True)}  (local {_lst_str(_w_bab[1], 44.4215)})")
+        print(f"      Duration: {_w_bab[2]:.1f} min")
 print()
 
 # ---------------------------------------------------------------------------
@@ -362,7 +341,7 @@ jr_minima = [
     and jr_sep_jer[i] < 5.0
 ]
 
-for idx in jr_minima:
+for conj_num, idx in enumerate(jr_minima):
     z0 = jd_daily[max(0, idx - 6)]
     z1 = jd_daily[min(n_days - 1, idx + 6)]
     jd_z2 = np.linspace(z0, z1, 17280)  # 12 days × 1440
@@ -403,13 +382,60 @@ for idx in jr_minima:
         f"    From BABYLON   : {fmt(tz2[mi2_bab], hhmm=True)}  (local {_lst_str(tz2[mi2_bab], 44.4215)})"
     )
     print(f"      Separation   : {zr_bab[mi2_bab]*60:.2f}′")
+
+    if conj_num == 1:
+        _t_jr2_jd = tz2[mi2_jer].tt  # save for Event 3 below
 print()
 
 # ---------------------------------------------------------------------------
-# Event 3: Jupiter stationary points
+# Event 3: Full moon nearest the 2nd Jupiter–Regulus conjunction (16 Feb 2 BC)
 # ---------------------------------------------------------------------------
 print(SEP)
-print("EVENT 3: JUPITER STATIONARY POINTS")
+print("EVENT 3: MOON & JUPITER AT REGULUS — AROUND 2ND J-R CONJUNCTION")
+print("Best moon visibility from Babylon: 3 nights before + 1 night after")
+print(SEP)
+
+for _night_offset in [3, 2, 1, 0]:
+    _pre_jd = np.linspace(_t_jr2_jd - _night_offset, _t_jr2_jd - _night_offset + 1.0, 1440)
+    _pre_t = ts.tt_jd(_pre_jd)
+
+    _sun_app = (earth + babylon).at(_pre_t).observe(sun).apparent()
+    _sun_alt3, _, _ = _sun_app.altaz()
+    _night_mask = _sun_alt3.degrees < 0.0
+
+    _moon_app = (earth + babylon).at(_pre_t).observe(moon).apparent()
+    _moon_alt3, _, _ = _moon_app.altaz()
+
+    _moon_alt_night = np.where(_night_mask, _moon_alt3.degrees, -999.0)
+    _best3 = int(np.argmax(_moon_alt_night))
+
+    _t_best3 = _pre_t[_best3]
+    _best3_jd = np.array([_pre_jd[_best3]])
+    _mr_sep = sep_star_arr(babylon, moon, regulus, ts.tt_jd(_best3_jd))[0]
+    _jr_sep3 = sep_star_arr(babylon, jup, regulus, ts.tt_jd(_best3_jd))[0]
+    _jm_sep3 = sep_arr(babylon, jup, moon, ts.tt_jd(_best3_jd))[0]
+    _t_scalar = ts.tt_jd(_pre_jd[_best3])
+    _moon_elong = (earth.at(_t_scalar).observe(moon).apparent()
+                   .separation_from(earth.at(_t_scalar).observe(sun).apparent()).degrees)
+    _illumination = (1 - np.cos(np.radians(_moon_elong))) / 2 * 100
+
+    print()
+    _night_label = f"{_night_offset} day(s) before" if _night_offset > 0 else "night after"
+    print(f"  Night {4 - _night_offset} of 4  ({_night_label} conjunction)")
+    print(f"    Observation time : {fmt(_t_best3, hhmm=True)}  (local {_lst_str(_t_best3, 44.4215)})")
+    print(f"    Moon altitude    : {_moon_alt_night[_best3]:.2f}°")
+    print(f"    Sun altitude     : {_sun_alt3.degrees[_best3]:.2f}°")
+    print(f"    Moon phase       : {_illumination:.1f}% illuminated  (elongation {_moon_elong:.1f}°)")
+    print(f"    Moon–Regulus     : {_mr_sep:.4f}°")
+    print(f"    Jup–Regulus      : {_jr_sep3:.4f}°")
+    print(f"    Jup–Moon         : {_jm_sep3:.4f}°")
+print()
+
+# ---------------------------------------------------------------------------
+# Event 4: Jupiter stationary points
+# ---------------------------------------------------------------------------
+print(SEP)
+print("EVENT 4: JUPITER STATIONARY POINTS")
 print(SEP)
 
 # Unwrap longitude to detect sign changes in daily motion
@@ -463,7 +489,7 @@ print()
 # Event 4: Jupiter heliacal rising(s)
 # ---------------------------------------------------------------------------
 print(SEP)
-print("EVENT 4: JUPITER HELIACAL RISING")
+print("EVENT 5: JUPITER HELIACAL RISING")
 print(SEP)
 
 AV = 11.0  # arcus visionis for Jupiter (degrees)
@@ -513,7 +539,7 @@ print()
 # Event 5: Jupiter altitude & azimuth — 2 BC, weekly at fixed 04:38 local time
 # ---------------------------------------------------------------------------
 print(SEP)
-print("EVENT 5: JUPITER ALTITUDE & AZIMUTH — 2 BC, WEEKLY AT 04:38 LOCAL")
+print("EVENT 6: JUPITER ALTITUDE & AZIMUTH — 2 BC, WEEKLY AT 04:38 LOCAL")
 print("Observer : Jerusalem")
 print("Time     : fixed at 04:38 Jerusalem local mean solar time")
 print("           (= time of Jupiter's heliacal rise on 29 Aug 2 BC)")
@@ -596,7 +622,7 @@ print()
 #          Interval = (sunrise on 29 Aug 2 BC) − (04:38 local on that day)
 # ---------------------------------------------------------------------------
 print(SEP)
-print("EVENT 6: JUPITER ALT/AZ — WEEKLY, FIXED INTERVAL BEFORE SUNRISE")
+print("EVENT 7: JUPITER ALT/AZ — WEEKLY, FIXED INTERVAL BEFORE SUNRISE")
 print("Observer : Jerusalem")
 print("Anchor   : interval between 04:38 local and sunrise on 29 Aug 2 BC,")
 print("           applied before each week's sunrise thereafter")
@@ -717,6 +743,148 @@ for i in range(0, n_days, 10):
         f"{jr_sep_jer[i]*60:7.1f}′  "
         f"{mot}"
     )
+
+# ---------------------------------------------------------------------------
+# Event 7: Total lunar eclipse — 1 BC January
+# ---------------------------------------------------------------------------
+from skyfield import eclipselib
+
+print(SEP)
+print("EVENT 7: TOTAL LUNAR ECLIPSE — 1 BC JANUARY")
+print(SEP)
+
+_RE = 6378.1    # Earth equatorial radius, km
+_RM = 1737.4    # Moon mean radius, km
+_RS = 696000.0  # Sun mean radius, km
+_K  = 1.0128    # Danjon atmospheric enlargement of Earth's shadow
+
+
+def _ecl_mags(t_arr):
+    """Return (umbral_mag, penumbral_mag) numpy arrays for a Time array."""
+    m_app = earth.at(t_arr).observe(moon).apparent()
+    s_app = earth.at(t_arr).observe(sun).apparent()
+    dM = m_app.distance().km
+    dS = s_app.distance().km
+    r_pen = (_RE + dM * (_RE + _RS) / dS) * _K
+    r_umb = (_RE - dM * (_RS  - _RE) / dS) * _K
+    rho_pen  = np.arcsin(r_pen  / dM)
+    rho_umb  = np.arcsin(r_umb  / dM)
+    rho_moon = np.arcsin(_RM    / dM)
+    m_ra, m_dec, _ = m_app.radec()
+    s_ra, s_dec, _ = s_app.radec()
+    as_ra  = np.radians(((s_ra.hours + 12.0) % 24.0) * 15.0)
+    as_dec = np.radians(-s_dec.degrees)
+    m_ra_r = np.radians(m_ra.hours * 15.0)
+    m_dec_r = np.radians(m_dec.degrees)
+    dra = m_ra_r - as_ra
+    a = (np.sin((m_dec_r - as_dec) / 2.0) ** 2
+         + np.cos(m_dec_r) * np.cos(as_dec) * np.sin(dra / 2.0) ** 2)
+    delta = 2.0 * np.arcsin(np.sqrt(np.clip(a, 0.0, 1.0)))
+    umb = (rho_umb  + rho_moon - delta) / (2.0 * rho_moon)
+    pen = (rho_pen  + rho_moon - delta) / (2.0 * rho_moon)
+    return umb, pen
+
+
+def _bisect_ecl(jd_lo, jd_hi, use_umb, threshold):
+    """Bisect to ~1-second precision where the chosen magnitude crosses threshold."""
+    def mag(jd):
+        u, p = _ecl_mags(ts.tt_jd(np.array([jd])))
+        return u[0] if use_umb else p[0]
+    sign_lo = mag(jd_lo) < threshold
+    for _ in range(50):
+        jd_mid = (jd_lo + jd_hi) / 2.0
+        if (mag(jd_mid) < threshold) == sign_lo:
+            jd_lo = jd_mid
+        else:
+            jd_hi = jd_mid
+        if (jd_hi - jd_lo) * 86400 < 1.0:
+            break
+    return ts.tt_jd((jd_lo + jd_hi) / 2.0)
+
+
+t0_ecl = ts.utc(0, 1, 1)
+t1_ecl = ts.utc(0, 1, 31)
+t_ecl, y_ecl, _ = eclipselib.lunar_eclipses(t0_ecl, t1_ecl, eph)
+
+if len(t_ecl) == 0:
+    print("  No eclipse found in Jan 1 BC.")
+else:
+    idx_ecl  = int(np.argmin(np.abs(t_ecl.tt - t0_ecl.tt)))
+    t_peak   = t_ecl[idx_ecl]
+    kind_name = eclipselib.LUNAR_ECLIPSES[int(y_ecl[idx_ecl])]
+    is_total  = (kind_name == "Total")
+
+    # Magnitudes at peak
+    _u_pk, _p_pk = _ecl_mags(ts.tt_jd(np.array([t_peak.tt])))
+
+    # Scan ±5 h to bracket all contact crossings
+    _jd_sc = np.linspace(t_peak.tt - 5.0/24, t_peak.tt + 5.0/24, 600)
+    _u_sc, _p_sc = _ecl_mags(ts.tt_jd(_jd_sc))
+
+    def _bracket(mag_arr, thresh, rising):
+        out = []
+        for i in range(len(mag_arr) - 1):
+            a, b = float(mag_arr[i]), float(mag_arr[i + 1])
+            if rising and a < thresh <= b:
+                out.append((_jd_sc[i], _jd_sc[i + 1]))
+            elif not rising and a >= thresh > b:
+                out.append((_jd_sc[i], _jd_sc[i + 1]))
+        return out
+
+    def _contact(mag_arr, use_umb, thresh, rising):
+        bra = _bracket(mag_arr, thresh, rising)
+        return _bisect_ecl(bra[0][0], bra[0][1], use_umb, thresh) if bra else None
+
+    t_P1 = _contact(_p_sc, False, 0.0, True)
+    t_U1 = _contact(_u_sc, True,  0.0, True)
+    t_U2 = _contact(_u_sc, True,  1.0, True)  if is_total else None
+    t_U3 = _contact(_u_sc, True,  1.0, False) if is_total else None
+    t_U4 = _contact(_u_sc, True,  0.0, False)
+    t_P4 = _contact(_p_sc, False, 0.0, False)
+
+    def _altaz(t):
+        obs = (earth + jerusalem).at(t).observe(moon).apparent()
+        alt, az, _ = obs.altaz()
+        return alt.degrees, az.degrees
+
+    def _row(label, t):
+        alt, az = _altaz(t)
+        flag = "" if alt > 0 else "  [below horizon]"
+        print(f"    {label:<22} : {fmt(t, hhmm=True)}  local {_lst_str(t, 35.2137)}"
+              f"  alt {alt:+6.2f}°  az {az:6.2f}°{flag}")
+
+    def _dur(ta, tb):
+        if ta is None or tb is None:
+            return "—"
+        dm = round((tb.tt - ta.tt) * 1440)
+        return f"{dm // 60}h {dm % 60:02d}m"
+
+    alt_pk, az_pk = _altaz(t_peak)
+
+    print()
+    print(f"  Type             : {kind_name}")
+    print(f"  Peak             : {fmt(t_peak, hhmm=True)}  local {_lst_str(t_peak, 35.2137)}")
+    print(f"  Umbral magnitude : {_u_pk[0]:.3f}")
+    print(f"  Penumbral mag    : {_p_pk[0]:.3f}")
+    print(f"  Moon at maximum  : alt {alt_pk:+.2f}°  az {az_pk:.2f}°")
+    print()
+    print("  Contact times (Jerusalem)")
+    if t_P1 is not None: _row("P1  penumbral ingress", t_P1)
+    if t_U1 is not None: _row("U1  umbral ingress   ", t_U1)
+    if t_U2 is not None: _row("U2  totality begins  ", t_U2)
+    print(f"      Maximum          : {fmt(t_peak, hhmm=True)}  local {_lst_str(t_peak, 35.2137)}"
+          f"  alt {alt_pk:+6.2f}°  az {az_pk:6.2f}°")
+    if t_U3 is not None: _row("U3  totality ends    ", t_U3)
+    if t_U4 is not None: _row("U4  umbral egress    ", t_U4)
+    if t_P4 is not None: _row("P4  penumbral egress ", t_P4)
+    print()
+    print("  Durations")
+    if is_total:
+        print(f"    Totality  (U2–U3) : {_dur(t_U2, t_U3)}")
+    print(    f"    Umbral    (U1–U4) : {_dur(t_U1, t_U4)}")
+    print(    f"    Penumbral (P1–P4) : {_dur(t_P1, t_P4)}")
+
+print()
 
 # ---------------------------------------------------------------------------
 # 7. Final notes

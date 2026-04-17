@@ -22,9 +22,9 @@ Visibility criteria (both must hold):
      the horizon
 
 Algorithm — three phases:
-  Phase 1  Daily geocentric scan — finds candidate windows (sep < 1.5°)
+  Phase 1  Daily geocentric scan — finds candidate windows
   Phase 2  1-minute topocentric scan within each candidate window
-  Phase 3  Bisection for precise entry/exit of the < 2′ interval,
+  Phase 3  Bisection for precise entry/exit of the interval,
            visibility check, then print
 
 Results are printed immediately as each qualifying event is found.
@@ -217,8 +217,8 @@ def bisect_sep(
 JD_START = ts.tt(-3000, 11, 14).tt  # inside DE422 lower bound
 JD_END = ts.tt(3000, 1, 1).tt  # inside DE422 upper bound
 
-THRESH_COARSE = 1.5  # deg — geocentric daily trigger
-THRESH_FINE = args.threshold * ARCMIN  # deg — configurable, default 1 arcminute
+THRESH_COARSE = args.threshold  # geocentric pre-filter, always 60x wider than fine
+THRESH_FINE = THRESH_COARSE * ARCMIN  # deg — configurable fine threshold
 THRESH_LABEL = f"{args.threshold:g}′"  # display string, e.g. "1′" or "0.5′"
 AV_JUP = 11.0  # deg — Jupiter arcus visionis
 NIGHT_ALT = -6.0  # deg — Sun must reach this to count as night

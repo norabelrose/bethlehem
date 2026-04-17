@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Star of Bethlehem — Celestial Events 3–2 BC</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+
+  :root {
+    --gold: #f0c060;
+    --gold-dim: #a07830;
+    --cream: #f5e8c8;
+    --deep-blue: #050a1a;
+    --mid-blue: #0a1535;
+    --nebula: #1a2a5a;
+    --text: #e8d5a0;
+    --dim: #8a7050;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--deep-blue);
+    color: var(--text);
+    font-family: 'Crimson Text', serif;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, .label, .event-title {
+    font-family: 'Cinzel', serif;
+  }
+
+  header {
+    text-align: center;
+    padding: 2.5rem 1rem 1rem;
+  }
+  header h1 {
+    font-size: clamp(1.4rem, 4vw, 2.6rem);
+    color: var(--gold);
+    letter-spacing: 0.15em;
+    text-shadow: 0 0 30px rgba(240,192,96,0.5);
+  }
+  header p {
+    font-size: 1.1rem;
+    color: var(--dim);
+    margin-top: 0.4rem;
+    font-style: italic;
+  }
+
+  #sky-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 900px;
+    margin: 1.5rem auto 0;
+  }
+  canvas#sky {
+    width: 100%;
+    height: auto;
+    display: block;
+    border: 1px solid rgba(240,192,96,0.15);
+    border-radius: 4px;
+  }
+
+  #controls {
+    max-width: 900px;
+    margin: 1.2rem auto 0;
+    padding: 0 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  #controls label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+  }
+  #timeline {
+    flex: 1;
+    min-width: 200px;
+    -webkit-appearance: none;
+    height: 3px;
+    background: linear-gradient(to right, var(--gold) 0%, var(--gold) var(--pct, 0%), var(--nebula) var(--pct, 0%), var(--nebula) 100%);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  #timeline::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 8px rgba(240,192,96,0.8);
+    cursor: pointer;
+  }
+  #timeline::-moz-range-thumb {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--gold);
+    border: none;
+    box-shadow: 0 0 8px rgba(240,192,96,0.8);
+  }
+  #btn-play {
+    background: transparent;
+    border: 1px solid var(--gold-dim);
+    color: var(--gold);
+    font-family: 'Cinzel', serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    padding: 0.45rem 1.1rem;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 0.2s;
+  }
+  #btn-play:hover { background: rgba(240,192,96,0.12); }
+
+  #speed-wrap {
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  #speed {
+    -webkit-appearance: none;
+    width: 80px; height: 3px;
+    background: var(--nebula);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  #speed::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--gold-dim);
+    cursor: pointer;
+  }
+
+  /* Toggle panel */
+  #toggle-panel {
+    max-width: 900px;
+    margin: 1rem auto 0;
+    padding: 0 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .tog-btn {
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.4rem 0.9rem;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.25s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    user-select: none;
+    background: transparent;
+  }
+
+  .tog-btn .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    transition: opacity 0.25s;
+  }
+
+  .tog-btn.active { opacity: 1; }
+  .tog-btn:not(.active) { opacity: 0.35; }
+  .tog-btn:hover { opacity: 1; }
+
+  .tog-ecliptic { border: 1px solid rgba(68,221,102,0.4); color: #88eea0; }
+  .tog-ecliptic .dot { background: #44dd66; box-shadow: 0 0 4px #44dd66; }
+  .tog-lines { border: 1px solid rgba(150,170,220,0.3); color: #a0b4dd; }
+  .tog-lines .dot { background: #7090cc; box-shadow: 0 0 4px #7090cc; }
+  .tog-art { border: 1px solid rgba(180,200,240,0.2); color: #99aad0; }
+  .tog-art .dot { background: rgba(180,200,240,0.5); }
+  .tog-labels { border: 1px solid rgba(240,220,160,0.3); color: #d0c080; }
+  .tog-labels .dot { background: #ddc880; }
+  .tog-sun { border: 1px solid rgba(255,224,80,0.3); color: #ffe060; }
+  .tog-sun .dot { background: #ffe060; box-shadow: 0 0 6px #ffe060; }
+  .tog-moon { border: 1px solid rgba(200,216,240,0.3); color: #c0d0ee; }
+  .tog-moon .dot { background: #c8d8f0; }
+  .tog-planets { border: 1px solid rgba(255,215,0,0.3); color: #ffd700; }
+  .tog-planets .dot { background: #ffd700; box-shadow: 0 0 4px #ffd700; }
+
+  .tog-sep {
+    width: 1px; height: 22px;
+    background: rgba(240,192,96,0.15);
+    margin: 0 0.2rem;
+  }
+
+  #event-panel {
+    max-width: 900px;
+    margin: 1.4rem auto 0;
+    padding: 0 1rem;
+    min-height: 110px;
+  }
+  .event-card {
+    background: rgba(10,21,53,0.7);
+    border-left: 3px solid var(--gold);
+    padding: 1rem 1.4rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .event-card .event-date {
+    font-family: 'Cinzel', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.18em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+  }
+  .event-card .event-title {
+    font-size: 1.25rem;
+    color: var(--cream);
+    margin-bottom: 0.35rem;
+  }
+  .event-card .event-desc {
+    font-size: 1rem;
+    color: var(--dim);
+    line-height: 1.55;
+    font-style: italic;
+  }
+
+  #event-list {
+    max-width: 900px;
+    margin: 2rem auto 3rem;
+    padding: 0 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 0.8rem;
+  }
+  .ev-item {
+    border: 1px solid rgba(240,192,96,0.15);
+    padding: 0.7rem 1rem;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .ev-item::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--gold);
+    transform: scaleY(0);
+    transition: transform 0.2s;
+    transform-origin: bottom;
+  }
+  .ev-item:hover::before, .ev-item.active::before { transform: scaleY(1); }
+  .ev-item:hover, .ev-item.active {
+    border-color: rgba(240,192,96,0.4);
+    background: rgba(240,192,96,0.06);
+  }
+  .ev-item .ei-date {
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    color: var(--gold-dim);
+    margin-bottom: 0.2rem;
+  }
+  .ev-item .ei-title {
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem;
+    color: var(--cream);
+  }
+
+  #legend {
+    max-width: 900px;
+    margin: 0 auto 1.5rem;
+    padding: 0 1rem;
+    display: flex; flex-wrap: wrap; gap: 1rem;
+  }
+  .leg { display: flex; align-items: center; gap: 0.45rem; font-size: 0.9rem; color: var(--dim); }
+  .leg-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+
+  footer {
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 0.85rem;
+    color: var(--dim);
+    font-style: italic;
+    border-top: 1px solid rgba(240,192,96,0.1);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>The Star of Bethlehem</h1>
+  <p>Celestial Events 3 BC &ndash; 1 BC &middot; Ernest L. Martin&rsquo;s Theory</p>
+</header>
+
+<div id="sky-wrap">
+  <canvas id="sky" width="900" height="500"></canvas>
+</div>
+
+<div id="controls">
+  <button id="btn-play">&#9654; PLAY</button>
+  <label>DATE</label>
+  <input type="range" id="timeline" min="212" max="737" value="212">
+  <div id="speed-wrap">
+    <label>SPEED</label>
+    <input type="range" id="speed" min="1" max="10" value="3">
+  </div>
+</div>
+
+<div id="toggle-panel">
+  <button class="tog-btn tog-ecliptic active" data-key="ecliptic"><span class="dot"></span>Ecliptic</button>
+  <button class="tog-btn tog-lines active" data-key="lines"><span class="dot"></span>Lines</button>
+  <button class="tog-btn tog-art active" data-key="art"><span class="dot"></span>Constellation Art</button>
+  <button class="tog-btn tog-labels active" data-key="labels"><span class="dot"></span>Labels</button>
+  <div class="tog-sep"></div>
+  <button class="tog-btn tog-sun active" data-key="sun"><span class="dot"></span>Sun</button>
+  <button class="tog-btn tog-moon active" data-key="moon"><span class="dot"></span>Moon</button>
+  <button class="tog-btn tog-planets active" data-key="planets"><span class="dot"></span>Planets</button>
+</div>
+
+<div id="event-panel">
+  <div class="event-card" id="ev-card">
+    <div class="event-date" id="ev-date">&mdash;</div>
+    <div class="event-title" id="ev-title">&mdash;</div>
+    <div class="event-desc" id="ev-desc">Drag the slider or press Play to begin</div>
+  </div>
+</div>
+
+<div id="legend">
+  <div class="leg"><div class="leg-dot" style="background:#ffd700;box-shadow:0 0 6px #ffd700"></div> Jupiter</div>
+  <div class="leg"><div class="leg-dot" style="background:#ff9adc;box-shadow:0 0 6px #ff9adc"></div> Venus</div>
+  <div class="leg"><div class="leg-dot" style="background:#a0c8ff;box-shadow:0 0 6px #a0c8ff"></div> Mercury</div>
+  <div class="leg"><div class="leg-dot" style="background:#ff6644;box-shadow:0 0 6px #ff6644"></div> Mars</div>
+  <div class="leg"><div class="leg-dot" style="background:#fff5cc"></div> Regulus</div>
+  <div class="leg"><div class="leg-dot" style="background:#ffeebb"></div> Spica</div>
+  <div class="leg"><div class="leg-dot" style="background:#ffe080;box-shadow:0 0 10px #ffe080;width:16px;height:16px"></div> Sun</div>
+  <div class="leg"><div class="leg-dot" style="background:#c8d8f0;border-radius:50% 50% 50% 50% / 60% 60% 40% 40%"></div> Moon</div>
+  <div class="leg"><div class="leg-dot" style="width:18px;height:3px;border-radius:1px;background:#44dd66"></div> Ecliptic</div>
+</div>
+
+<div id="event-list"></div>
+
+<footer>All dates are proleptic Gregorian. Celestial positions calculated from the NASA JPL DE422 ephemeris.</footer>
+
+<script>
+// ═══════════════════════════════════════════════
+// TOGGLE STATE
+// ═══════════════════════════════════════════════
+const show = { ecliptic:true, lines:true, art:true, labels:true, sun:true, moon:true, planets:true };
+
+document.querySelectorAll('.tog-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const k = btn.dataset.key;
+    show[k] = !show[k];
+    btn.classList.toggle('active', show[k]);
+    render(currentT);
+  });
+});
+
+// ═══════════════════════════════════════════════
+// EVENT DATA
+// ═══════════════════════════════════════════════
+// t = day index: 0 = 1 Jan 3 BC, 365 = 1 Jan 2 BC
+const EVENTS = [
+  { t:221, date:"10 Aug 3 BC", title:"Jupiter\u2013Venus Conjunction in Leo",
+    desc:"Jupiter and Venus converge to within 4.3 arcminutes in the morning sky in Leo \u2014 nearly appearing as a single object to the naked eye. At closest approach (~08:00 local time) both planets stand 50\u00b0 above the eastern horizon.",
+    highlight:["jupiter","venus"] },
+  { t:238, date:"27 Aug 3 BC", title:"Mercury Joins Venus \u2014 Sun Enters Virgo",
+    desc:"Mercury conjoins with Venus in Leo as the Sun crosses into Virgo.",
+    highlight:["mercury","venus","sun"] },
+  { t:251, date:"9 Sep 3 BC \u2014 6:15\u20137:45 p.m.", title:"\u2605 The Revelation 12 Sign \u2014 Rosh Hashanah",
+    desc:"The Sun clothes the body of Virgo. The crescent New Moon rests just beneath her feet, ~90 min after sunset. This is Tishrei 1, the Day of Trumpets.",
+    highlight:["sun","moon","virgo"] },
+  { t:253, date:"11 Sep 3 BC", title:"1st Jupiter\u2013Regulus Conjunction",
+    desc:"Jupiter makes its first conjunction with Regulus, the \"little king\" at the heart of Leo.",
+    highlight:["jupiter","regulus"] },
+  { t:412, date:"16 Feb 2 BC", title:"2nd Jupiter\u2013Regulus Conjunction",
+    desc:"Jupiter enters retrograde and loops back to Regulus a second time. For three nights prior to this, Jupiter and Regulus are within 22 degrees of the Moon, which is nearly full. This makes it plausible that an ice crystal halo formed around the Moon on at least one of these winter nights, encircling both objects. An ancient Babylonian astrological text states: \"When a halo surrounds the Moon and Regulus stands within it, women will bear male children\" (Thompson, no. 97).",
+    highlight:["jupiter","regulus"] },
+  { t:492, date:"6 May 2 BC", title:"3rd Jupiter\u2013Regulus Conjunction",
+    desc:"Jupiter resumes direct motion and passes Regulus a third time \u2014 a triple crowning of the King Star. Separation: 46\u2032.",
+    highlight:["jupiter","regulus"] },
+  { t:530, date:"15 Jun 2 BC", title:"\u2605 Jupiter\u2013Venus: The Great Conjunction",
+    desc:"Jupiter and Venus merge in Leo with a separation of only 0.585\u2032 (35\u2033) \u2014 appearing as a single brilliant star for over two hours.",
+    highlight:["jupiter","venus"] },
+  //{ t:602, date:"26 Aug 2 BC", title:"Massing of Planets in Leo",
+  //  desc:"Jupiter, Mars, Venus, and Mercury all converge in Leo as the Sun re-enters Virgo. A rare celestial gathering.",
+  //  highlight:["jupiter","venus","mercury","mars"] },
+  { t:723, date:"25 Dec 2 BC", title:"\u2605 Jupiter Stands Still over Bethlehem",
+    desc:"Jupiter reaches its stationary point in the southern sky as seen from Jerusalem \u2014 appearing to \u2018stand still\u2019 over Bethlehem. The Magi visited the Holy Family on this date, give or take a couple of days.",
+    highlight:["jupiter"] },
+  { t:737, date:"8 Jan 1 BC", title:"\u{1F311} Total Lunar Eclipse \u2014 Herod Falls Ill",
+    desc:"A total lunar eclipse visible across Judea. Josephus records that Herod the Great fell ill after an eclipse of the moon, and died before Passover. Andrew Steinmann and other scholars argue that this is the eclipse of 8 January 1 BC, just two weeks after the Magi visit the Holy Family. Josephus tells us that Herod left Jerusalem to get medical treatment after the eclipse, so the Slaughter of the Innocents probably happened before then, in the first week of January.",
+    highlight:["moon"] }
+];
+
+// ═══════════════════════════════════════════════
+// MATH / INTERPOLATION
+// ═══════════════════════════════════════════════
+function lerp(a,b,t){return a+(b-a)*t}
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
+function easeInOut(t){t=clamp(t,0,1);return t<.5?2*t*t:-1+(4-2*t)*t}
+
+// ═══════════════════════════════════════════════
+// BACKGROUND STARS
+// ═══════════════════════════════════════════════
+const BG_STARS=[];
+(function(){let s=0;function r(){s=(s*1664525+1013904223)&0xffffffff;return(s>>>0)/0xffffffff}
+for(let i=0;i<300;i++)BG_STARS.push({x:r(),y:r()*0.88+0.02,r:r()*1.4+0.3,b:r()*0.6+0.3})})();
+
+// ═══════════════════════════════════════════════
+// COORDINATE MAPPING  (RA/Dec → canvas fraction)
+// View: RA 6h–17h (east→left), Dec -30°–+40°
+// ═══════════════════════════════════════════════
+const RA_MIN=6, RA_MAX=17, DEC_MIN=-30, DEC_MAX=40;
+function sky(ra,dec){
+  return{x:(RA_MAX-ra)/(RA_MAX-RA_MIN),
+         y:(DEC_MAX-dec)/(DEC_MAX-DEC_MIN)};
+}
+function inFrame(p){return p.x>=0&&p.x<=1&&p.y>=0&&p.y<=1;}
+
+// ═══════════════════════════════════════════════
+// CONSTELLATION DATA  (real J2000 RA/Dec coords)
+// ═══════════════════════════════════════════════
+function S(ra,dec,r,name){const p=sky(ra,dec);return name?{x:p.x,y:p.y,r,name}:{x:p.x,y:p.y,r};}
+
+const CONST_LEO={name:"LEO",stars:[
+  S(10.139,11.967,5.5,"Regulus"), // 0
+  S(10.122,16.763,3),             // 1 η Leo
+  S(10.333,19.842,3.5),           // 2 Algieba
+  S(10.278,23.417,2.5),           // 3 ζ Leo
+  S(9.879, 25.999,2),             // 4 μ Leo
+  S(9.764, 23.774,2.5),           // 5 ε Leo
+  S(11.235,20.524,3),             // 6 δ Leo
+  S(11.237,15.430,3),             // 7 θ Leo
+  S(11.818,14.572,3.5,"Denebola"),// 8
+  S(11.399,10.529,2)],            // 9 ι Leo
+  lines:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,1],[0,7],[7,6],[6,2],[7,8],[9,0]]};
+
+const CONST_VIRGO={name:"VIRGO",stars:[
+  S(13.036,10.97,3),              // 0 Vindemiatrix
+  S(12.927, 3.40,2),              // 1 δ Vir
+  S(11.845, 1.76,2.5),            // 2 β Vir
+  S(12.332,-0.67,2),              // 3 η Vir
+  S(12.694,-1.45,3),              // 4 γ Vir (Porrima)
+  S(13.420,-11.20,6,"Spica"),     // 5
+  S(13.578,-0.60,2),              // 6 ζ Vir
+  S(14.268,-6.00,2)],             // 7 ι Vir
+  lines:[[0,1],[1,4],[4,3],[3,2],[0,6],[6,4],[4,5],[5,7]]};
+
+const CONST_LIBRA={name:"LIBRA",stars:[
+  S(14.848,-16.04,3),             // 0 α Lib
+  S(15.284, -9.38,2.5),           // 1 β Lib
+  S(15.592,-14.79,2.5),           // 2 γ Lib
+  S(15.012, -8.52,2)],            // 3 δ Lib
+  lines:[[0,1],[0,2],[1,3],[2,3]]};
+
+const CONST_SCORPIUS={name:"SCORPIUS",stars:[
+  S(16.092,-19.80,2),             // 0 β Sco
+  S(16.004,-22.62,2),             // 1 δ Sco
+  S(16.490,-26.43,4.5,"Antares"), // 2
+  S(16.352,-25.59,2)],            // 3 σ Sco
+  lines:[[0,1],[1,2],[2,3],[1,3]]};
+
+const CONST_HYDRA={name:"HYDRA",stars:[
+  S(9.460, -8.66,3,"Alphard"),   // 0 α Hya
+  S(10.176,-12.35,2),             // 1
+  S(10.827,-16.19,2),             // 2 ν Hya
+  S(13.315,-23.17,2)],            // 3 γ Hya
+  lines:[[0,1],[1,2],[2,3]]};
+
+const ALL_C=[CONST_LEO,CONST_VIRGO,CONST_SCORPIUS,CONST_LIBRA,CONST_HYDRA];
+
+// ═══════════════════════════════════════════════
+// EPHEMERIS DATA  (loaded from ephemeris_data.json)
+// ═══════════════════════════════════════════════
+let EPH=null;
+fetch('ephemeris_data.json')
+  .then(r=>r.json())
+  .then(data=>{EPH=data;setT(212);})
+  .catch(e=>console.error('Failed to load ephemeris:',e));
+
+function getPos(name,dayIdx){
+  if(!EPH||!EPH.bodies[name])return{x:0.5,y:0.5};
+  const body=EPH.bodies[name];
+  const n=body.ra.length;
+  const i=Math.max(0,Math.min(Math.floor(dayIdx),n-2));
+  const f=dayIdx-Math.floor(dayIdx);
+  let ra0=body.ra[i],ra1=body.ra[i+1];
+  if(ra1-ra0>12)ra1-=24; // handle RA wrap-around
+  if(ra0-ra1>12)ra1+=24;
+  const ra=ra0+(ra1-ra0)*f;
+  const dec=body.dec[i]+(body.dec[i+1]-body.dec[i])*f;
+  return sky(ra,dec);
+}
+
+function currentDate(dayIdx){
+  if(!EPH)return '';
+  return EPH.dates[Math.max(0,Math.min(Math.round(dayIdx),EPH.dates.length-1))];
+}
+
+// ═══════════════════════════════════════════════
+// RENDERING
+// ═══════════════════════════════════════════════
+const canvas=document.getElementById('sky');
+const ctx=canvas.getContext('2d');
+const W=900,H=500;
+
+// ── Background ──
+function drawBg(){
+  const g=ctx.createRadialGradient(W*.5,H*.5,0,W*.5,H*.5,W*.6);
+  g.addColorStop(0,'#0b1530');g.addColorStop(1,'#020710');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+
+  // Milky way
+  const mw=ctx.createLinearGradient(W*.7,0,W*.15,H);
+  mw.addColorStop(0,'rgba(80,100,160,0)');
+  mw.addColorStop(0.35,'rgba(90,110,170,0.05)');
+  mw.addColorStop(0.5,'rgba(100,120,180,0.07)');
+  mw.addColorStop(0.65,'rgba(90,110,170,0.05)');
+  mw.addColorStop(1,'rgba(80,100,160,0)');
+  ctx.fillStyle=mw;ctx.fillRect(0,0,W,H);
+
+  BG_STARS.forEach(s=>{
+    const tw=0.7+0.3*Math.sin(Date.now()*0.001*s.b*2+s.x*20);
+    ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r*tw,0,Math.PI*2);
+    ctx.fillStyle=`rgba(200,210,255,${s.b*tw*0.8})`;ctx.fill();
+  });
+}
+
+// ── Ecliptic ──
+function drawEcliptic(){
+  if(!show.ecliptic)return;
+  ctx.save();
+
+  // In the new coordinate system (RA 6h–17h right→left, Dec -30°–+40° top→bottom)
+  // the ecliptic runs from upper-right (RA~6h, Dec~+23°) to lower-left (RA~17h, Dec~-29°)
+  // Computed from solar Dec at key RA positions along the ecliptic
+  ctx.beginPath();
+  ctx.moveTo(W,    H*0.24); // RA 6h,  Dec +23°
+  ctx.bezierCurveTo(
+    W*0.82, H*0.31,
+    W*0.64, H*0.47,
+    W*0.46, H*0.60  // RA ~12h, Dec ~-2°
+  );
+  ctx.bezierCurveTo(
+    W*0.28, H*0.73,
+    W*0.10, H*0.89,
+    0,      H*1.00  // RA 17h, Dec ~-29°
+  );
+
+  ctx.strokeStyle='rgba(68,221,102,0.07)';
+  ctx.lineWidth=16;
+  ctx.stroke();
+  ctx.strokeStyle='rgba(68,221,102,0.50)';
+  ctx.lineWidth=1.5;
+  ctx.stroke();
+
+  // Zodiac label ticks at approximate RA positions
+  const ticks=[
+    {l:'LEO',    x:W*0.71, y:H*0.45},
+    {l:'VIRGO',  x:W*0.50, y:H*0.58},
+    {l:'LIBRA',  x:W*0.28, y:H*0.74},
+    {l:'SCORPIUS',x:W*0.09,y:H*0.89},
+  ];
+  ctx.font='9px Cinzel, serif';
+  ticks.forEach(m=>{
+    ctx.fillStyle='rgba(68,221,102,0.35)';
+    ctx.fillText(m.l, m.x-6, m.y-10);
+    ctx.beginPath();ctx.arc(m.x,m.y,3,0,Math.PI*2);
+    ctx.fillStyle='rgba(68,221,102,0.25)';ctx.fill();
+  });
+
+  ctx.save();
+  ctx.translate(W*0.93,H*0.27);ctx.rotate(0.52);
+  ctx.font='600 9px Cinzel, serif';
+  ctx.fillStyle='rgba(68,221,102,0.40)';
+  ctx.fillText('Ecliptic',0,0);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+// ── Constellation Art ──
+function drawArt(c){
+  if(!show.art)return;
+  ctx.save();
+  ctx.globalAlpha=0.12;
+  ctx.strokeStyle='#a0b8e0';
+  ctx.lineWidth=1.2;
+  ctx.lineJoin='round';
+
+  if(c===CONST_LEO) drawLeoArt();
+  else if(c===CONST_VIRGO) drawVirgoArt();
+  else if(c===CONST_SCORPIUS) drawScorpiusArt();
+  else if(c===CONST_LIBRA) drawLibraArt();
+  else if(c===CONST_HYDRA) drawHydraArt();
+
+  ctx.restore();
+}
+
+function drawLeoArt(){
+  const cx=0.58*W,cy=0.31*H;
+  // Mane
+  ctx.beginPath();ctx.arc(cx-30,cy-10,28,0,Math.PI*2);ctx.stroke();
+  // Head
+  ctx.beginPath();ctx.arc(cx-30,cy-8,16,0,Math.PI*2);
+  ctx.fillStyle='rgba(160,184,224,0.05)';ctx.fill();ctx.stroke();
+  // Body
+  ctx.beginPath();ctx.moveTo(cx-14,cy);
+  ctx.quadraticCurveTo(cx+20,cy-15,cx+70,cy-5);
+  ctx.quadraticCurveTo(cx+90,cy,cx+85,cy+20);ctx.stroke();
+  // Belly
+  ctx.beginPath();ctx.moveTo(cx-14,cy+10);
+  ctx.quadraticCurveTo(cx+30,cy+25,cx+80,cy+20);ctx.stroke();
+  // Front legs
+  ctx.beginPath();ctx.moveTo(cx-5,cy+10);ctx.lineTo(cx-10,cy+45);
+  ctx.moveTo(cx+5,cy+8);ctx.lineTo(cx+2,cy+45);ctx.stroke();
+  // Back legs
+  ctx.beginPath();ctx.moveTo(cx+65,cy+18);ctx.lineTo(cx+60,cy+50);
+  ctx.moveTo(cx+78,cy+16);ctx.lineTo(cx+80,cy+50);ctx.stroke();
+  // Tail
+  ctx.beginPath();ctx.moveTo(cx+85,cy+5);
+  ctx.quadraticCurveTo(cx+110,cy-20,cx+105,cy-35);ctx.stroke();
+  // Ears
+  ctx.beginPath();
+  ctx.moveTo(cx-40,cy-28);ctx.lineTo(cx-35,cy-42);ctx.lineTo(cx-28,cy-28);
+  ctx.moveTo(cx-22,cy-28);ctx.lineTo(cx-18,cy-40);ctx.lineTo(cx-14,cy-26);ctx.stroke();
+}
+
+function drawVirgoArt(){
+  const cx=0.36*W,cy=0.56*H;
+  // Head
+  ctx.beginPath();ctx.arc(cx-10,cy-50,14,0,Math.PI*2);ctx.stroke();
+  ctx.fillStyle='rgba(160,184,224,0.04)';ctx.fill();
+  // Hair
+  ctx.beginPath();
+  ctx.moveTo(cx-24,cy-48);ctx.quadraticCurveTo(cx-30,cy-30,cx-28,cy-15);
+  ctx.moveTo(cx+4,cy-48);ctx.quadraticCurveTo(cx+10,cy-30,cx+8,cy-15);ctx.stroke();
+  // Body/dress
+  ctx.beginPath();ctx.moveTo(cx-10,cy-36);ctx.lineTo(cx-10,cy+10);
+  ctx.quadraticCurveTo(cx-25,cy+50,cx-30,cy+80);
+  ctx.moveTo(cx-10,cy+10);ctx.quadraticCurveTo(cx+5,cy+50,cx+10,cy+80);ctx.stroke();
+  // Arms
+  ctx.beginPath();ctx.moveTo(cx-10,cy-20);
+  ctx.quadraticCurveTo(cx-50,cy-10,cx-65,cy+5);
+  ctx.moveTo(cx-10,cy-20);ctx.quadraticCurveTo(cx+30,cy-15,cx+50,cy);ctx.stroke();
+  // Wings (left)
+  ctx.beginPath();ctx.moveTo(cx-15,cy-25);
+  ctx.quadraticCurveTo(cx-60,cy-55,cx-80,cy-40);
+  ctx.quadraticCurveTo(cx-65,cy-20,cx-15,cy-10);ctx.stroke();
+  // Wings (right)
+  ctx.beginPath();ctx.moveTo(cx-5,cy-25);
+  ctx.quadraticCurveTo(cx+40,cy-60,cx+65,cy-50);
+  ctx.quadraticCurveTo(cx+50,cy-25,cx-5,cy-10);ctx.stroke();
+  // Wheat sheaf
+  ctx.beginPath();
+  ctx.moveTo(cx+50,cy);ctx.lineTo(cx+55,cy+30);
+  ctx.moveTo(cx+48,cy+5);ctx.lineTo(cx+58,cy+30);
+  ctx.moveTo(cx+52,cy+2);ctx.lineTo(cx+60,cy+25);ctx.stroke();
+}
+
+function drawScorpiusArt(){
+  const cx=0.07*W,cy=0.88*H;
+  // Body curve
+  ctx.beginPath();ctx.moveTo(cx-30,cy-30);
+  ctx.quadraticCurveTo(cx-10,cy-20,cx,cy);
+  ctx.quadraticCurveTo(cx+8,cy+18,cx+15,cy+35);
+  ctx.quadraticCurveTo(cx+18,cy+48,cx+10,cy+55);ctx.stroke();
+  // Stinger
+  ctx.beginPath();ctx.moveTo(cx+10,cy+55);ctx.lineTo(cx+4,cy+48);
+  ctx.moveTo(cx+10,cy+55);ctx.lineTo(cx+18,cy+50);ctx.stroke();
+  // Claws
+  ctx.beginPath();ctx.moveTo(cx-30,cy-30);
+  ctx.quadraticCurveTo(cx-48,cy-46,cx-52,cy-50);
+  ctx.moveTo(cx-30,cy-30);
+  ctx.quadraticCurveTo(cx-32,cy-48,cx-25,cy-52);ctx.stroke();
+}
+
+function drawLibraArt(){
+  const cx=0.17*W,cy=0.75*H;
+  // Beam
+  ctx.beginPath();ctx.moveTo(cx-22,cy-6);ctx.lineTo(cx+22,cy-6);ctx.stroke();
+  // Post
+  ctx.beginPath();ctx.moveTo(cx,cy-6);ctx.lineTo(cx,cy+12);ctx.stroke();
+  // Base
+  ctx.beginPath();ctx.moveTo(cx-10,cy+12);ctx.lineTo(cx+10,cy+12);ctx.stroke();
+  // Left pan
+  ctx.beginPath();ctx.moveTo(cx-22,cy-6);ctx.lineTo(cx-26,cy+4);
+  ctx.quadraticCurveTo(cx-22,cy+10,cx-16,cy+4);ctx.lineTo(cx-22,cy-6);ctx.stroke();
+  // Right pan
+  ctx.beginPath();ctx.moveTo(cx+22,cy-6);ctx.lineTo(cx+16,cy+4);
+  ctx.quadraticCurveTo(cx+22,cy+10,cx+26,cy+4);ctx.lineTo(cx+22,cy-6);ctx.stroke();
+}
+
+function drawHydraArt(){
+  const cx=0.57*W,cy=0.79*H;
+  // Serpentine body
+  ctx.beginPath();ctx.moveTo(cx-80,cy);
+  ctx.quadraticCurveTo(cx-50,cy-12,cx-20,cy+5);
+  ctx.quadraticCurveTo(cx+10,cy+18,cx+40,cy);
+  ctx.quadraticCurveTo(cx+60,cy-10,cx+80,cy-5);ctx.stroke();
+  // Head
+  ctx.beginPath();ctx.arc(cx-85,cy+2,8,0,Math.PI*2);ctx.stroke();
+  // Tongue
+  ctx.beginPath();ctx.moveTo(cx-93,cy+2);ctx.lineTo(cx-100,cy-2);
+  ctx.moveTo(cx-93,cy+2);ctx.lineTo(cx-100,cy+6);ctx.stroke();
+}
+
+// ── Constellation lines + stars ──
+function drawConst(c,alpha){
+  if(alpha<=0)return;
+  ctx.save();
+
+  if(show.lines){
+    ctx.globalAlpha=alpha*0.5;
+    ctx.strokeStyle='rgba(150,170,220,0.4)';
+    ctx.lineWidth=0.8;ctx.setLineDash([3,5]);
+    c.lines.forEach(([a,b])=>{
+      ctx.beginPath();ctx.moveTo(c.stars[a].x*W,c.stars[a].y*H);
+      ctx.lineTo(c.stars[b].x*W,c.stars[b].y*H);ctx.stroke();
+    });
+    ctx.setLineDash([]);
+  }
+
+  // Stars always visible
+  ctx.globalAlpha=alpha;
+  c.stars.forEach(s=>{
+    ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r,0,Math.PI*2);
+    ctx.fillStyle='#fff5e0';ctx.fill();
+    if(s.name){
+      const gw=ctx.createRadialGradient(s.x*W,s.y*H,0,s.x*W,s.y*H,s.r*5);
+      gw.addColorStop(0,'rgba(255,240,200,0.4)');gw.addColorStop(1,'rgba(255,240,200,0)');
+      ctx.fillStyle=gw;ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r*5,0,Math.PI*2);ctx.fill();
+      if(show.labels){
+        ctx.fillStyle='rgba(240,220,160,0.85)';ctx.font='600 11px Cinzel, serif';
+        ctx.fillText(s.name,s.x*W+s.r+4,s.y*H-s.r-2);
+      }
+    }
+  });
+
+  if(show.labels){
+    const cx2=c.stars.reduce((a,s)=>a+s.x,0)/c.stars.length;
+    const cy2=c.stars.reduce((a,s)=>a+s.y,0)/c.stars.length;
+    ctx.fillStyle='rgba(150,170,220,0.5)';ctx.font='600 13px Cinzel, serif';
+    ctx.textAlign='center';ctx.fillText(c.name,cx2*W,cy2*H+50);ctx.textAlign='left';
+  }
+  ctx.restore();
+}
+
+// ── Celestial bodies ──
+function drawPlanet(name,t,cfg){
+  if(!show.planets)return null;
+  const p=getPos(name,t);if(!inFrame(p))return null;const px=p.x*W,py=p.y*H;
+  const{color,r,glowColor,glowR,label}=cfg;
+
+  const g=ctx.createRadialGradient(px,py,0,px,py,glowR||r*6);
+  g.addColorStop(0,glowColor||color);g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.beginPath();ctx.arc(px,py,glowR||r*6,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+
+  ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();
+
+  if(label&&show.labels){
+    ctx.save();ctx.fillStyle='rgba(220,200,140,0.7)';ctx.font='10px Cinzel, serif';
+    ctx.fillText(label,px+r+4,py-r);ctx.restore();
+  }
+  return{px,py};
+}
+
+function drawSun(t){
+  if(!show.sun)return;
+  const p=getPos('sun',t);if(!inFrame(p))return;const px=p.x*W,py=p.y*H;const r=20;
+
+  ctx.save();
+  for(let i=0;i<12;i++){
+    const a=(i/12)*Math.PI*2+Date.now()*0.0003;
+    const r1=r+4,r2=r+14+Math.sin(i*1.7+Date.now()*0.001)*4;
+    ctx.beginPath();ctx.moveTo(px+Math.cos(a)*r1,py+Math.sin(a)*r1);
+    ctx.lineTo(px+Math.cos(a)*r2,py+Math.sin(a)*r2);
+    ctx.strokeStyle='rgba(255,220,80,0.3)';ctx.lineWidth=2;ctx.stroke();
+  }
+  const g1=ctx.createRadialGradient(px,py,0,px,py,r*4);
+  g1.addColorStop(0,'rgba(255,255,180,0.35)');g1.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.beginPath();ctx.arc(px,py,r*4,0,Math.PI*2);ctx.fillStyle=g1;ctx.fill();
+  const g2=ctx.createRadialGradient(px-r*.2,py-r*.2,0,px,py,r);
+  g2.addColorStop(0,'#ffffcc');g2.addColorStop(.5,'#ffe060');g2.addColorStop(1,'#ff9900');
+  ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);ctx.fillStyle=g2;ctx.fill();
+  ctx.restore();
+
+  if(show.labels){ctx.fillStyle='rgba(255,230,120,0.7)';ctx.font='10px Cinzel, serif';ctx.fillText('Sun',px+r+3,py-r);}
+}
+
+function drawMoon(t){
+  if(!show.moon)return;
+  const p=getPos('moon',t);if(!inFrame(p))return;const px=p.x*W,py=p.y*H;const r=9;
+
+  // Blood moon effect for Jan 8 1 BC eclipse (t=737)
+  const eclipseA=Math.max(0,1-Math.abs(t-737));
+  const moonColor=eclipseA>0
+    ?`rgba(${Math.round(200+55*eclipseA)},${Math.round(220*(1-eclipseA*0.8))},${Math.round(255*(1-eclipseA))},1)`
+    :'#c8d8f0';
+  const glowColor=eclipseA>0
+    ?`rgba(220,60,20,${0.35*eclipseA})`
+    :'rgba(200,220,255,0.25)';
+
+  const g=ctx.createRadialGradient(px,py,0,px,py,r*5);
+  g.addColorStop(0,glowColor);g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.beginPath();ctx.arc(px,py,r*5,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+
+  ctx.save();
+  ctx.beginPath();ctx.arc(px,py,r,-Math.PI*.5,Math.PI*1.5);ctx.fillStyle=moonColor;ctx.fill();
+  if(eclipseA<0.8){
+    ctx.beginPath();ctx.arc(px+r*.4,py,r*.85,-Math.PI*.5,Math.PI*1.5);ctx.fillStyle='#0a1535';ctx.fill();
+  }
+  ctx.restore();
+
+  if(show.labels){
+    const labelColor=eclipseA>0?'rgba(255,180,100,0.85)':'rgba(200,220,255,0.7)';
+    ctx.fillStyle=labelColor;ctx.font='10px Cinzel, serif';
+    ctx.fillText(eclipseA>0?'Moon (Eclipse)':'Moon',px+r+3,py-r);
+  }
+}
+
+function drawHighlights(hl,t){
+  hl.forEach(name=>{
+    let pos;
+    if(name==='virgo'){pos=sky(12.9,2.0)} // center of Virgo
+    else if(name==='regulus'){const rs=CONST_LEO.stars.find(s=>s.name==='Regulus');pos=rs?{x:rs.x,y:rs.y}:null}
+    else{
+      if((name==='sun'&&!show.sun)||(name==='moon'&&!show.moon)||
+        (['jupiter','venus','mercury','mars'].includes(name)&&!show.planets))return;
+      pos=getPos(name,t);
+    }
+    if(!pos||!inFrame(pos))return;
+    const px=pos.x*W,py=pos.y*H;
+    ctx.save();ctx.beginPath();ctx.arc(px,py,28,0,Math.PI*2);
+    ctx.strokeStyle='rgba(240,192,96,0.4)';ctx.lineWidth=1.5;
+    ctx.setLineDash([4,4]);ctx.lineDashOffset=-(Date.now()*0.001%6.28)*10;
+    ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  });
+}
+
+function drawConjLine(n1,n2,t,col){
+  if(!show.planets)return;
+  const p1=getPos(n1,t),p2=getPos(n2,t);
+  if(!inFrame(p1)||!inFrame(p2))return;
+  const dx=(p2.x-p1.x)*W,dy=(p2.y-p1.y)*H;
+  const d=Math.sqrt(dx*dx+dy*dy);if(d>80)return;
+  const a=1-d/80;
+  ctx.save();ctx.beginPath();ctx.moveTo(p1.x*W,p1.y*H);ctx.lineTo(p2.x*W,p2.y*H);
+  ctx.strokeStyle=col||`rgba(240,192,96,${a*0.6})`;ctx.lineWidth=1+a*2;ctx.stroke();ctx.restore();
+}
+
+function getEventAtT(t){let c=EVENTS[0];for(let i=0;i<EVENTS.length;i++)if(t>=EVENTS[i].t)c=EVENTS[i];return c}
+
+// ═══════════════════════════════════════════════
+// MAIN RENDER
+// ═══════════════════════════════════════════════
+function render(t){
+  ctx.clearRect(0,0,W,H);
+  drawBg();
+
+  // Ecliptic (behind everything)
+  drawEcliptic();
+
+  // Constellation art (faint, behind lines)
+  ALL_C.forEach(c=>drawArt(c));
+
+  // Constellation lines + stars
+  ALL_C.forEach(c=>drawConst(c,1));
+
+  // Conjunction lines
+  drawConjLine('jupiter','venus',t,'rgba(255,220,80,0.5)');
+  drawConjLine('jupiter','mercury',t,'rgba(200,220,255,0.4)');
+  drawConjLine('venus','mercury',t,'rgba(255,180,220,0.4)');
+  drawConjLine('jupiter','mars',t,'rgba(255,120,80,0.3)');
+
+  // Celestial bodies
+  drawSun(t);
+  drawPlanet('venus',t,{color:'#ff9adc',r:7,glowColor:'rgba(255,154,220,0.4)',glowR:28,label:'Venus'});
+  drawPlanet('mercury',t,{color:'#a0c8ff',r:5,glowColor:'rgba(160,200,255,0.3)',glowR:20,label:'Mercury'});
+  drawPlanet('mars',t,{color:'#ff6644',r:6,glowColor:'rgba(255,100,68,0.35)',glowR:22,label:'Mars'});
+  drawPlanet('jupiter',t,{color:'#ffd700',r:11,glowColor:'rgba(255,215,0,0.5)',glowR:36,label:'Jupiter'});
+  drawMoon(t);
+
+  // Highlights
+  const ev=getEventAtT(t);
+  if(ev&&ev.highlight)drawHighlights(ev.highlight,t);
+
+  // Sep 11 3 BC special glow (day 253)
+  if(t>=233&&t<=273){
+    const a=Math.max(0,1-Math.abs(t-253)/20);
+    const sp=getPos('sun',t);
+    ctx.save();
+    const sg=ctx.createRadialGradient(sp.x*W,sp.y*H,0,sp.x*W,sp.y*H,W*.20);
+    sg.addColorStop(0,`rgba(255,200,80,${a*0.12})`);sg.addColorStop(1,'rgba(255,200,80,0)');
+    ctx.fillStyle=sg;ctx.beginPath();ctx.arc(sp.x*W,sp.y*H,W*.20,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
+
+  // Date overlay
+  const dateStr=currentDate(t);
+  if(dateStr){
+    ctx.save();ctx.fillStyle='rgba(240,192,96,0.5)';ctx.font='600 11px Cinzel, serif';
+    ctx.textAlign='right';ctx.fillText(dateStr,W-14,22);ctx.textAlign='left';ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════════
+// UI
+// ═══════════════════════════════════════════════
+const slider=document.getElementById('timeline');
+const btnPlay=document.getElementById('btn-play');
+const speedSlider=document.getElementById('speed');
+
+let currentT=0,playing=false,animId=null,lastTime=null;
+
+function updatePanel(t){
+  const ev=getEventAtT(t);if(!ev)return;
+  document.getElementById('ev-date').textContent=ev.date;
+  document.getElementById('ev-title').textContent=ev.title;
+  document.getElementById('ev-desc').textContent=ev.desc;
+  document.querySelectorAll('.ev-item').forEach(el=>{
+    el.classList.toggle('active',parseInt(el.dataset.t)===ev.t);
+  });
+}
+
+function setT(t){
+  currentT=clamp(t,212,737);
+  slider.value=currentT;
+  slider.style.setProperty('--pct',((currentT-212)/(737-212)*100)+'%');
+  updatePanel(currentT);
+  render(currentT);
+}
+
+function loop(ts){
+  if(!playing)return;
+  if(!lastTime)lastTime=ts;
+  const dt=ts-lastTime;lastTime=ts;
+  currentT+=dt*parseInt(speedSlider.value)*0.015; // ~1 day/frame at speed 1
+  if(currentT>737){currentT=737;playing=false;btnPlay.textContent='\u25B6 PLAY';lastTime=null;}
+  setT(currentT);
+  if(playing)animId=requestAnimationFrame(loop);
+}
+
+btnPlay.addEventListener('click',()=>{
+  if(playing){playing=false;btnPlay.textContent='\u25B6 PLAY';lastTime=null;cancelAnimationFrame(animId);}
+  else{if(currentT>=729)setT(212);playing=true;btnPlay.textContent='\u23F8 PAUSE';lastTime=null;animId=requestAnimationFrame(loop);}
+});
+
+slider.addEventListener('input',()=>setT(parseInt(slider.value)));
+
+// Build event list
+const listEl=document.getElementById('event-list');
+EVENTS.forEach(ev=>{
+  const d=document.createElement('div');d.className='ev-item';d.dataset.t=ev.t;
+  d.innerHTML=`<div class="ei-date">${ev.date}</div><div class="ei-title">${ev.title}</div>`;
+  d.addEventListener('click',()=>{
+    if(playing){playing=false;btnPlay.textContent='\u25B6 PLAY';cancelAnimationFrame(animId);}
+    setT(ev.t);
+  });
+  listEl.appendChild(d);
+});
+
+// Continuous twinkling
+function bgLoop(){if(!playing)render(currentT);requestAnimationFrame(bgLoop)}
+
+setT(212);
+bgLoop();
+</script>
+</body>
+</html>
