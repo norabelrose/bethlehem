@@ -294,7 +294,7 @@
 
 <header>
   <h1>The Star of Bethlehem</h1>
-  <p>Celestial Events 3 BC &ndash; 1 BC &middot; Ernest L. Martin&rsquo;s Theory</p>
+  <p>Celestial Events 3 BC &ndash; 1 BC</p>
 </header>
 
 <div id="sky-wrap">
@@ -304,7 +304,7 @@
 <div id="controls">
   <button id="btn-play">&#9654; PLAY</button>
   <label>DATE</label>
-  <input type="range" id="timeline" min="212" max="737" value="212">
+  <input type="range" id="timeline" min="200" max="737" value="208">
   <div id="speed-wrap">
     <label>SPEED</label>
     <input type="range" id="speed" min="1" max="10" value="3">
@@ -366,20 +366,20 @@ document.querySelectorAll('.tog-btn').forEach(btn => {
 // ═══════════════════════════════════════════════
 // t = day index: 0 = 1 Jan 3 BC, 365 = 1 Jan 2 BC
 const EVENTS = [
+  { t:208, date:"28 Jul 3 BC", title:"\u2605 Heliacal Rising of Jupiter",
+    desc:"Jupiter emerges from behind the Sun and becomes visible for the first time in the pre-dawn sky over Babylon \u2014 its heliacal rising. The Magi allude to the heliacal rising in Matthew 2:2, saying \u201cwe saw his star at its rising (ἐν τῇ ἀνατολῇ).\u201d When Herod asks for \u201cthe exact time the star had appeared\u201d (Matthew 2:7), the Magi give him this date. About one year and four months elapse between the heliacal rising and the Magi's visit to the Holy Family. Herod rounds this figure up to two years when he orders the Slaughter of the Innocents, in order to ensure he eliminates the Christ child (Matthew 2:16).",
+    highlight:["jupiter"] },
   { t:221, date:"10 Aug 3 BC", title:"Jupiter\u2013Venus Conjunction in Leo",
-    desc:"Jupiter and Venus converge to within 4.3 arcminutes in the morning sky in Leo \u2014 nearly appearing as a single object to the naked eye. At closest approach (~08:00 local time) both planets stand 50\u00b0 above the eastern horizon.",
+    desc:"Jupiter and Venus converge to within 4.3 arcminutes in the morning sky in Leo \u2014 nearly appearing as a single object to the naked eye. At closest approach (~08:00 local time) both planets stand 50\u00b0 above the eastern horizon. This is the first time an approach of less than 5 arcminutes had been seen in several centuries.",
     highlight:["jupiter","venus"] },
-  { t:238, date:"27 Aug 3 BC", title:"Mercury Joins Venus \u2014 Sun Enters Virgo",
-    desc:"Mercury conjoins with Venus in Leo as the Sun crosses into Virgo.",
-    highlight:["mercury","venus","sun"] },
   { t:251, date:"9 Sep 3 BC \u2014 6:15\u20137:45 p.m.", title:"\u2605 The Revelation 12 Sign \u2014 Rosh Hashanah",
-    desc:"The Sun clothes the body of Virgo. The crescent New Moon rests just beneath her feet, ~90 min after sunset. This is Tishrei 1, the Day of Trumpets.",
+    desc:"The Sun clothes the body of Virgo. The crescent New Moon rests just beneath her feet, ~90 min after sunset. This is 1 Tishrei on the Jewish calendar, the first day of the Rosh Hashanah new year festival, also known as the Day of Trumpets.",
     highlight:["sun","moon","virgo"] },
   { t:253, date:"11 Sep 3 BC", title:"1st Jupiter\u2013Regulus Conjunction",
     desc:"Jupiter makes its first conjunction with Regulus, the \"little king\" at the heart of Leo.",
     highlight:["jupiter","regulus"] },
   { t:412, date:"16 Feb 2 BC", title:"2nd Jupiter\u2013Regulus Conjunction",
-    desc:"Jupiter enters retrograde and loops back to Regulus a second time. For three nights prior to this, Jupiter and Regulus are within 22 degrees of the Moon, which is nearly full. This makes it plausible that an ice crystal halo formed around the Moon on at least one of these winter nights, encircling both objects. An ancient Babylonian astrological text states: \"When a halo surrounds the Moon and Regulus stands within it, women will bear male children\" (Thompson, no. 97).",
+    desc:"Jupiter enters retrograde and loops back to Regulus a second time. For three nights prior to this, Jupiter and Regulus are within 22 degrees of the Moon, which is nearly full. This makes it plausible that an ice crystal halo formed around the Moon on at least one of these winter nights, encircling both objects. An ancient Babylonian astrological text states: \u201cWhen a halo surrounds the Moon and Regulus stands within it, women will bear male children\u201d (Thompson, no. 97).",
     highlight:["jupiter","regulus"] },
   { t:492, date:"6 May 2 BC", title:"3rd Jupiter\u2013Regulus Conjunction",
     desc:"Jupiter resumes direct motion and passes Regulus a third time \u2014 a triple crowning of the King Star. Separation: 46\u2032.",
@@ -481,7 +481,7 @@ const ALL_C=[CONST_LEO,CONST_VIRGO,CONST_SCORPIUS,CONST_LIBRA,CONST_HYDRA];
 let EPH=null;
 fetch('ephemeris_data.json')
   .then(r=>r.json())
-  .then(data=>{EPH=data;setT(212);})
+  .then(data=>{EPH=data;setT(208);})
   .catch(e=>console.error('Failed to load ephemeris:',e));
 
 function getPos(name,dayIdx){
@@ -930,9 +930,9 @@ function updatePanel(t){
 }
 
 function setT(t){
-  currentT=clamp(t,212,737);
+  currentT=clamp(t,200,737);
   slider.value=currentT;
-  slider.style.setProperty('--pct',((currentT-212)/(737-212)*100)+'%');
+  slider.style.setProperty('--pct',((currentT-200)/(737-200)*100)+'%');
   updatePanel(currentT);
   render(currentT);
 }
@@ -949,7 +949,7 @@ function loop(ts){
 
 btnPlay.addEventListener('click',()=>{
   if(playing){playing=false;btnPlay.textContent='\u25B6 PLAY';lastTime=null;cancelAnimationFrame(animId);}
-  else{if(currentT>=729)setT(212);playing=true;btnPlay.textContent='\u23F8 PAUSE';lastTime=null;animId=requestAnimationFrame(loop);}
+  else{if(currentT>=737)setT(200);playing=true;btnPlay.textContent='\u23F8 PAUSE';lastTime=null;animId=requestAnimationFrame(loop);}
 });
 
 slider.addEventListener('input',()=>setT(parseInt(slider.value)));
@@ -969,7 +969,7 @@ EVENTS.forEach(ev=>{
 // Continuous twinkling
 function bgLoop(){if(!playing)render(currentT);requestAnimationFrame(bgLoop)}
 
-setT(212);
+setT(208);
 bgLoop();
 </script>
 </body>

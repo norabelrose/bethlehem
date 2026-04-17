@@ -261,28 +261,28 @@ for conj_num, idx in enumerate(jv_minima):
         )
         return t_en, t_ex, (t_ex.tt - t_en.tt) * 1440
 
-    def _deg_window(site, jv_sep_daily):
-        below = jv_sep_daily < _JV_WINDOW
+    def _deg_window(site, zv):
+        below = zv < _JV_WINDOW
         if not np.any(below):
             return None
         i_en = int(np.argmax(below))
         i_ex = len(below) - 1 - int(np.argmax(below[::-1]))
         t_en = _bisect_sep_crossing(
             site, jup, ven,
-            jd_daily[max(0, i_en - 1)], jd_daily[i_en],
+            jd_z[max(0, i_en - 1)], jd_z[i_en],
             entering=True, threshold=_JV_WINDOW,
         )
         t_ex = _bisect_sep_crossing(
             site, jup, ven,
-            jd_daily[i_ex], jd_daily[min(n_days - 1, i_ex + 1)],
+            jd_z[i_ex], jd_z[min(len(jd_z) - 1, i_ex + 1)],
             entering=False, threshold=_JV_WINDOW,
         )
         return t_en, t_ex, t_ex.tt - t_en.tt
 
     _w_jer = _1m_window(jerusalem, zv_jer)
     _w_bab = _1m_window(babylon, zv_bab)
-    _d_jer = _deg_window(jerusalem, jv_sep_jer)
-    _d_bab = _deg_window(babylon, jv_sep_bab)
+    _d_jer = _deg_window(jerusalem, zv_jer)
+    _d_bab = _deg_window(babylon, zv_bab)
 
     print()
     print(f"  Conjunction {conj_num + 1}  (near {fmt(times_d[idx])})")
