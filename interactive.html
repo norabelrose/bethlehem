@@ -177,8 +177,6 @@
   .tog-ecliptic .dot { background: #44dd66; box-shadow: 0 0 4px #44dd66; }
   .tog-lines { border: 1px solid rgba(150,170,220,0.3); color: #a0b4dd; }
   .tog-lines .dot { background: #7090cc; box-shadow: 0 0 4px #7090cc; }
-  .tog-art { border: 1px solid rgba(180,200,240,0.2); color: #99aad0; }
-  .tog-art .dot { background: rgba(180,200,240,0.5); }
   .tog-labels { border: 1px solid rgba(240,220,160,0.3); color: #d0c080; }
   .tog-labels .dot { background: #ddc880; }
   .tog-sun { border: 1px solid rgba(255,224,80,0.3); color: #ffe060; }
@@ -314,7 +312,6 @@
 <div id="toggle-panel">
   <button class="tog-btn tog-ecliptic active" data-key="ecliptic"><span class="dot"></span>Ecliptic</button>
   <button class="tog-btn tog-lines active" data-key="lines"><span class="dot"></span>Lines</button>
-  <button class="tog-btn tog-art active" data-key="art"><span class="dot"></span>Constellation Art</button>
   <button class="tog-btn tog-labels active" data-key="labels"><span class="dot"></span>Labels</button>
   <div class="tog-sep"></div>
   <button class="tog-btn tog-sun active" data-key="sun"><span class="dot"></span>Sun</button>
@@ -335,8 +332,6 @@
   <div class="leg"><div class="leg-dot" style="background:#ff9adc;box-shadow:0 0 6px #ff9adc"></div> Venus</div>
   <div class="leg"><div class="leg-dot" style="background:#a0c8ff;box-shadow:0 0 6px #a0c8ff"></div> Mercury</div>
   <div class="leg"><div class="leg-dot" style="background:#ff6644;box-shadow:0 0 6px #ff6644"></div> Mars</div>
-  <div class="leg"><div class="leg-dot" style="background:#fff5cc"></div> Regulus</div>
-  <div class="leg"><div class="leg-dot" style="background:#ffeebb"></div> Spica</div>
   <div class="leg"><div class="leg-dot" style="background:#ffe080;box-shadow:0 0 10px #ffe080;width:16px;height:16px"></div> Sun</div>
   <div class="leg"><div class="leg-dot" style="background:#c8d8f0;border-radius:50% 50% 50% 50% / 60% 60% 40% 40%"></div> Moon</div>
   <div class="leg"><div class="leg-dot" style="width:18px;height:3px;border-radius:1px;background:#44dd66"></div> Ecliptic</div>
@@ -350,7 +345,7 @@
 // ═══════════════════════════════════════════════
 // TOGGLE STATE
 // ═══════════════════════════════════════════════
-const show = { ecliptic:true, lines:true, art:true, labels:true, sun:true, moon:true, planets:true };
+const show = { ecliptic:true, lines:true, labels:true, sun:true, moon:true, planets:true };
 
 document.querySelectorAll('.tog-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -373,10 +368,10 @@ const EVENTS = [
     desc:"Jupiter and Venus converge to within 4.3 arcminutes in the morning sky in Leo \u2014 nearly appearing as a single object to the naked eye. At closest approach (~08:00 local time) both planets stand 50\u00b0 above the eastern horizon. This is the first time an approach of less than 5 arcminutes had been seen in several centuries.",
     highlight:["jupiter","venus"] },
   { t:251, date:"9 Sep 3 BC \u2014 6:15\u20137:45 p.m.", title:"\u2605 The Revelation 12 Sign \u2014 Rosh Hashanah",
-    desc:"The Sun clothes the body of Virgo. The crescent New Moon rests just beneath her feet, ~90 min after sunset. This is 1 Tishrei on the Jewish calendar, the first day of the Rosh Hashanah new year festival, also known as the Day of Trumpets.",
+    desc:"John says \u201cA great sign appeared in heaven: a woman clothed with the sun, with the moon under her feet and a crown of twelve stars on her head\u201d (Rev. 12:1). This sign appeared on 9 Sept 3 BC, when the Sun clothed the body of Virgo, and the crescent New Moon rested just beneath her feet, ~90 min after sunset. It was 1 Tishrei on the Jewish calendar, the first day of the Rosh Hashanah new year festival, also known as the Day of Trumpets.",
     highlight:["sun","moon","virgo"] },
   { t:253, date:"11 Sep 3 BC", title:"1st Jupiter\u2013Regulus Conjunction",
-    desc:"Jupiter makes its first conjunction with Regulus, the \"little king\" at the heart of Leo.",
+    desc:"Jupiter makes its first conjunction with Regulus. This star has been associated with kings for at least three thousand years. The ancient Greek astronomer Geminus of Rhodes records that this star was called Basiliskos (\u201clittle king\u201d) in the 1st century before Christ, and the Babylonian text MUL.APIN calls this star Lugal (\u201cKing\u201d) around 1000 BC. The closest approach between Jupiter (king planet) and Regulus (king star) occurs at 5:01 P.M. Jerusalem solar time, just before sunset on the second day of Rosh Hashanah (2 Tishrei).",
     highlight:["jupiter","regulus"] },
   { t:412, date:"16 Feb 2 BC", title:"2nd Jupiter\u2013Regulus Conjunction",
     desc:"Jupiter enters retrograde and loops back to Regulus a second time. For three nights prior to this, Jupiter and Regulus are within 22 degrees of the Moon, which is nearly full. This makes it plausible that an ice crystal halo formed around the Moon on at least one of these winter nights, encircling both objects. An ancient Babylonian astrological text states: \u201cWhen a halo surrounds the Moon and Regulus stands within it, women will bear male children\u201d (Thompson, no. 97).",
@@ -387,14 +382,11 @@ const EVENTS = [
   { t:530, date:"15 Jun 2 BC", title:"\u2605 Jupiter\u2013Venus: The Great Conjunction",
     desc:"Jupiter and Venus merge in Leo with a separation of only 0.585\u2032 (35\u2033) \u2014 appearing as a single brilliant star for over two hours.",
     highlight:["jupiter","venus"] },
-  //{ t:602, date:"26 Aug 2 BC", title:"Massing of Planets in Leo",
-  //  desc:"Jupiter, Mars, Venus, and Mercury all converge in Leo as the Sun re-enters Virgo. A rare celestial gathering.",
-  //  highlight:["jupiter","venus","mercury","mars"] },
   { t:723, date:"25 Dec 2 BC", title:"\u2605 Jupiter Stands Still over Bethlehem",
     desc:"Jupiter reaches its stationary point in the southern sky as seen from Jerusalem \u2014 appearing to \u2018stand still\u2019 over Bethlehem. The Magi visited the Holy Family on this date, give or take a couple of days.",
     highlight:["jupiter"] },
   { t:737, date:"8 Jan 1 BC", title:"\u{1F311} Total Lunar Eclipse \u2014 Herod Falls Ill",
-    desc:"A total lunar eclipse visible across Judea. Josephus records that Herod the Great fell ill after an eclipse of the moon, and died before Passover. Andrew Steinmann and other scholars argue that this is the eclipse of 8 January 1 BC, just two weeks after the Magi visit the Holy Family. Josephus tells us that Herod left Jerusalem to get medical treatment after the eclipse, so the Slaughter of the Innocents probably happened before then, in the first week of January.",
+    desc:"A total lunar eclipse visible across Judea. Josephus records that Herod the Great fell ill after an eclipse of the moon, and died before Passover (Antiquities 17.6.4). Andrew Steinmann and other scholars argue that this is the eclipse of 8 January 1 BC, just two weeks after the Magi visit the Holy Family. Josephus tells us that Herod left Jerusalem to get medical treatment after the eclipse, so the Slaughter of the Innocents probably happened before then, in the first week of January.",
     highlight:["moon"] }
 ];
 
@@ -428,6 +420,52 @@ function inFrame(p){return p.x>=0&&p.x<=1&&p.y>=0&&p.y<=1;}
 // ═══════════════════════════════════════════════
 function S(ra,dec,r,name){const p=sky(ra,dec);return name?{x:p.x,y:p.y,r,name}:{x:p.x,y:p.y,r};}
 
+function buildVirgo(vs){
+  // Apparent coords from Skyfield at Jul 2 BC; sizes reflect visual magnitude
+  const cfg=[
+    ["spica",        5.5,"Spica"],
+    ["zavijava",     2.5,null],
+    ["porrima",      3.5,"Porrima"],
+    ["auva",         2.5,null],
+    ["vindemiatrix", 3.0,"Vindemiatrix"],
+    ["heze",         2.5,null],
+    ["zaniah",       2.5,null],
+    ["syrma",        2.0,null],
+    ["mu_vir",       2.0,null],
+    ["tau_vir",      2.0,null],
+    ["109_vir",      2.5,null],
+  ];
+  CONST_VIRGO.stars=cfg.map(([key,r,name])=>{
+    const{ra,dec}=vs[key];const p=sky(ra,dec);
+    return name?{x:p.x,y:p.y,r,name}:{x:p.x,y:p.y,r};
+  });
+}
+
+function buildHydra(hs){
+  const cfg=[
+    ["delta_hya",   2.0, null],
+    ["sigma_hya",   1.8, null],
+    ["eta_hya",     2.0, null],
+    ["epsilon_hya", 3.0, null],
+    ["rho_hya",     2.0, null],
+    ["zeta_hya",    3.0, null],
+    ["theta_hya",   2.5, null],
+    ["iota_hya",    2.5, null],
+    ["alphard",     5.0, "Alphard"],
+    ["lambda_hya",  2.5, null],
+    ["mu_hya",      2.5, null],
+    ["nu_hya",      3.0, null],
+    ["xi_hya",      2.8, null],
+    ["beta_hya",    2.0, null],
+    ["gamma_hya",   3.5, null],
+    ["pi_hya",      3.0, null],
+  ];
+  CONST_HYDRA.stars=cfg.map(([key,r,name])=>{
+    const{ra,dec}=hs[key];const p=sky(ra,dec);
+    return name?{x:p.x,y:p.y,r,name}:{x:p.x,y:p.y,r};
+  });
+}
+
 const CONST_LEO={name:"LEO",stars:[
   S(10.139,11.967,5.5,"Regulus"), // 0
   S(10.122,16.763,3),             // 1 η Leo
@@ -441,39 +479,27 @@ const CONST_LEO={name:"LEO",stars:[
   S(11.399,10.529,2)],            // 9 ι Leo
   lines:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,1],[0,7],[7,6],[6,2],[7,8],[9,0]]};
 
-const CONST_VIRGO={name:"VIRGO",stars:[
-  S(13.036,10.97,3),              // 0 Vindemiatrix
-  S(12.927, 3.40,2),              // 1 δ Vir
-  S(11.845, 1.76,2.5),            // 2 β Vir
-  S(12.332,-0.67,2),              // 3 η Vir
-  S(12.694,-1.45,3),              // 4 γ Vir (Porrima)
-  S(13.420,-11.20,6,"Spica"),     // 5
-  S(13.578,-0.60,2),              // 6 ζ Vir
-  S(14.268,-6.00,2)],             // 7 ι Vir
-  lines:[[0,1],[1,4],[4,3],[3,2],[0,6],[6,4],[4,5],[5,7]]};
+// Built from EPH.virgo_stars after JSON loads; star order matches export dict:
+// spica=0 zavijava=1 porrima=2 auva=3 vindemiatrix=4
+// heze=5 zaniah=6 syrma=7 mu_vir=8 tau_vir=9 109_vir=10
+let CONST_VIRGO={name:"VIRGO",stars:[],lines:[
+  [1,6],[6,2],[2,3],[3,4],   // Zavijava–Zaniah–Porrima–Auva–Vindemiatrix
+  [2,5],[5,0],               // Porrima–Heze–Spica
+  [5,9],[9,10],              // Heze–τ Vir–109 Vir
+  [0,7],[7,8],               // Spica–Syrma–μ Vir
+]};
 
-const CONST_LIBRA={name:"LIBRA",stars:[
-  S(14.848,-16.04,3),             // 0 α Lib
-  S(15.284, -9.38,2.5),           // 1 β Lib
-  S(15.592,-14.79,2.5),           // 2 γ Lib
-  S(15.012, -8.52,2)],            // 3 δ Lib
-  lines:[[0,1],[0,2],[1,3],[2,3]]};
 
-const CONST_SCORPIUS={name:"SCORPIUS",stars:[
-  S(16.092,-19.80,2),             // 0 β Sco
-  S(16.004,-22.62,2),             // 1 δ Sco
-  S(16.490,-26.43,4.5,"Antares"), // 2
-  S(16.352,-25.59,2)],            // 3 σ Sco
-  lines:[[0,1],[1,2],[2,3],[1,3]]};
 
-const CONST_HYDRA={name:"HYDRA",stars:[
-  S(9.460, -8.66,3,"Alphard"),   // 0 α Hya
-  S(10.176,-12.35,2),             // 1
-  S(10.827,-16.19,2),             // 2 ν Hya
-  S(13.315,-23.17,2)],            // 3 γ Hya
-  lines:[[0,1],[1,2],[2,3]]};
+// Built from EPH.hydra_stars after JSON loads; star order matches export dict:
+// delta=0 sigma=1 eta=2 epsilon=3 rho=4 zeta=5 theta=6 alphard=7
+// iota=8 lambda=9 mu=10 nu=11 xi=12 beta=13 gamma=14 pi=15
+let CONST_HYDRA={name:"HYDRA",stars:[],lines:[
+  [0,1],[1,2],[2,3],[3,4],[4,5],[0,3],  // head: δ-σ-η-ε-ρ-ζ + δ-ε closing the loop
+  [5,6],[6,7],[7,8],[8,9],[9,10],[10,11],[11,12],[12,13],[13,14],[14,15], // body chain
+]};
 
-const ALL_C=[CONST_LEO,CONST_VIRGO,CONST_SCORPIUS,CONST_LIBRA,CONST_HYDRA];
+const ALL_C=[CONST_LEO,CONST_VIRGO,CONST_HYDRA];
 
 // ═══════════════════════════════════════════════
 // EPHEMERIS DATA  (loaded from ephemeris_data.json)
@@ -481,7 +507,7 @@ const ALL_C=[CONST_LEO,CONST_VIRGO,CONST_SCORPIUS,CONST_LIBRA,CONST_HYDRA];
 let EPH=null;
 fetch('ephemeris_data.json')
   .then(r=>r.json())
-  .then(data=>{EPH=data;setT(208);})
+  .then(data=>{EPH=data;if(data.virgo_stars)buildVirgo(data.virgo_stars);if(data.hydra_stars)buildHydra(data.hydra_stars);setT(208);})
   .catch(e=>console.error('Failed to load ephemeris:',e));
 
 function getPos(name,dayIdx){
@@ -564,8 +590,6 @@ function drawEcliptic(){
   const ticks=[
     {l:'LEO',    x:W*0.71, y:H*0.45},
     {l:'VIRGO',  x:W*0.50, y:H*0.58},
-    {l:'LIBRA',  x:W*0.28, y:H*0.74},
-    {l:'SCORPIUS',x:W*0.09,y:H*0.89},
   ];
   ctx.font='9px Cinzel, serif';
   ticks.forEach(m=>{
@@ -586,130 +610,6 @@ function drawEcliptic(){
 }
 
 // ── Constellation Art ──
-function drawArt(c){
-  if(!show.art)return;
-  ctx.save();
-  ctx.globalAlpha=0.12;
-  ctx.strokeStyle='#a0b8e0';
-  ctx.lineWidth=1.2;
-  ctx.lineJoin='round';
-
-  if(c===CONST_LEO) drawLeoArt();
-  else if(c===CONST_VIRGO) drawVirgoArt();
-  else if(c===CONST_SCORPIUS) drawScorpiusArt();
-  else if(c===CONST_LIBRA) drawLibraArt();
-  else if(c===CONST_HYDRA) drawHydraArt();
-
-  ctx.restore();
-}
-
-function drawLeoArt(){
-  const cx=0.58*W,cy=0.31*H;
-  // Mane
-  ctx.beginPath();ctx.arc(cx-30,cy-10,28,0,Math.PI*2);ctx.stroke();
-  // Head
-  ctx.beginPath();ctx.arc(cx-30,cy-8,16,0,Math.PI*2);
-  ctx.fillStyle='rgba(160,184,224,0.05)';ctx.fill();ctx.stroke();
-  // Body
-  ctx.beginPath();ctx.moveTo(cx-14,cy);
-  ctx.quadraticCurveTo(cx+20,cy-15,cx+70,cy-5);
-  ctx.quadraticCurveTo(cx+90,cy,cx+85,cy+20);ctx.stroke();
-  // Belly
-  ctx.beginPath();ctx.moveTo(cx-14,cy+10);
-  ctx.quadraticCurveTo(cx+30,cy+25,cx+80,cy+20);ctx.stroke();
-  // Front legs
-  ctx.beginPath();ctx.moveTo(cx-5,cy+10);ctx.lineTo(cx-10,cy+45);
-  ctx.moveTo(cx+5,cy+8);ctx.lineTo(cx+2,cy+45);ctx.stroke();
-  // Back legs
-  ctx.beginPath();ctx.moveTo(cx+65,cy+18);ctx.lineTo(cx+60,cy+50);
-  ctx.moveTo(cx+78,cy+16);ctx.lineTo(cx+80,cy+50);ctx.stroke();
-  // Tail
-  ctx.beginPath();ctx.moveTo(cx+85,cy+5);
-  ctx.quadraticCurveTo(cx+110,cy-20,cx+105,cy-35);ctx.stroke();
-  // Ears
-  ctx.beginPath();
-  ctx.moveTo(cx-40,cy-28);ctx.lineTo(cx-35,cy-42);ctx.lineTo(cx-28,cy-28);
-  ctx.moveTo(cx-22,cy-28);ctx.lineTo(cx-18,cy-40);ctx.lineTo(cx-14,cy-26);ctx.stroke();
-}
-
-function drawVirgoArt(){
-  const cx=0.36*W,cy=0.56*H;
-  // Head
-  ctx.beginPath();ctx.arc(cx-10,cy-50,14,0,Math.PI*2);ctx.stroke();
-  ctx.fillStyle='rgba(160,184,224,0.04)';ctx.fill();
-  // Hair
-  ctx.beginPath();
-  ctx.moveTo(cx-24,cy-48);ctx.quadraticCurveTo(cx-30,cy-30,cx-28,cy-15);
-  ctx.moveTo(cx+4,cy-48);ctx.quadraticCurveTo(cx+10,cy-30,cx+8,cy-15);ctx.stroke();
-  // Body/dress
-  ctx.beginPath();ctx.moveTo(cx-10,cy-36);ctx.lineTo(cx-10,cy+10);
-  ctx.quadraticCurveTo(cx-25,cy+50,cx-30,cy+80);
-  ctx.moveTo(cx-10,cy+10);ctx.quadraticCurveTo(cx+5,cy+50,cx+10,cy+80);ctx.stroke();
-  // Arms
-  ctx.beginPath();ctx.moveTo(cx-10,cy-20);
-  ctx.quadraticCurveTo(cx-50,cy-10,cx-65,cy+5);
-  ctx.moveTo(cx-10,cy-20);ctx.quadraticCurveTo(cx+30,cy-15,cx+50,cy);ctx.stroke();
-  // Wings (left)
-  ctx.beginPath();ctx.moveTo(cx-15,cy-25);
-  ctx.quadraticCurveTo(cx-60,cy-55,cx-80,cy-40);
-  ctx.quadraticCurveTo(cx-65,cy-20,cx-15,cy-10);ctx.stroke();
-  // Wings (right)
-  ctx.beginPath();ctx.moveTo(cx-5,cy-25);
-  ctx.quadraticCurveTo(cx+40,cy-60,cx+65,cy-50);
-  ctx.quadraticCurveTo(cx+50,cy-25,cx-5,cy-10);ctx.stroke();
-  // Wheat sheaf
-  ctx.beginPath();
-  ctx.moveTo(cx+50,cy);ctx.lineTo(cx+55,cy+30);
-  ctx.moveTo(cx+48,cy+5);ctx.lineTo(cx+58,cy+30);
-  ctx.moveTo(cx+52,cy+2);ctx.lineTo(cx+60,cy+25);ctx.stroke();
-}
-
-function drawScorpiusArt(){
-  const cx=0.07*W,cy=0.88*H;
-  // Body curve
-  ctx.beginPath();ctx.moveTo(cx-30,cy-30);
-  ctx.quadraticCurveTo(cx-10,cy-20,cx,cy);
-  ctx.quadraticCurveTo(cx+8,cy+18,cx+15,cy+35);
-  ctx.quadraticCurveTo(cx+18,cy+48,cx+10,cy+55);ctx.stroke();
-  // Stinger
-  ctx.beginPath();ctx.moveTo(cx+10,cy+55);ctx.lineTo(cx+4,cy+48);
-  ctx.moveTo(cx+10,cy+55);ctx.lineTo(cx+18,cy+50);ctx.stroke();
-  // Claws
-  ctx.beginPath();ctx.moveTo(cx-30,cy-30);
-  ctx.quadraticCurveTo(cx-48,cy-46,cx-52,cy-50);
-  ctx.moveTo(cx-30,cy-30);
-  ctx.quadraticCurveTo(cx-32,cy-48,cx-25,cy-52);ctx.stroke();
-}
-
-function drawLibraArt(){
-  const cx=0.17*W,cy=0.75*H;
-  // Beam
-  ctx.beginPath();ctx.moveTo(cx-22,cy-6);ctx.lineTo(cx+22,cy-6);ctx.stroke();
-  // Post
-  ctx.beginPath();ctx.moveTo(cx,cy-6);ctx.lineTo(cx,cy+12);ctx.stroke();
-  // Base
-  ctx.beginPath();ctx.moveTo(cx-10,cy+12);ctx.lineTo(cx+10,cy+12);ctx.stroke();
-  // Left pan
-  ctx.beginPath();ctx.moveTo(cx-22,cy-6);ctx.lineTo(cx-26,cy+4);
-  ctx.quadraticCurveTo(cx-22,cy+10,cx-16,cy+4);ctx.lineTo(cx-22,cy-6);ctx.stroke();
-  // Right pan
-  ctx.beginPath();ctx.moveTo(cx+22,cy-6);ctx.lineTo(cx+16,cy+4);
-  ctx.quadraticCurveTo(cx+22,cy+10,cx+26,cy+4);ctx.lineTo(cx+22,cy-6);ctx.stroke();
-}
-
-function drawHydraArt(){
-  const cx=0.57*W,cy=0.79*H;
-  // Serpentine body
-  ctx.beginPath();ctx.moveTo(cx-80,cy);
-  ctx.quadraticCurveTo(cx-50,cy-12,cx-20,cy+5);
-  ctx.quadraticCurveTo(cx+10,cy+18,cx+40,cy);
-  ctx.quadraticCurveTo(cx+60,cy-10,cx+80,cy-5);ctx.stroke();
-  // Head
-  ctx.beginPath();ctx.arc(cx-85,cy+2,8,0,Math.PI*2);ctx.stroke();
-  // Tongue
-  ctx.beginPath();ctx.moveTo(cx-93,cy+2);ctx.lineTo(cx-100,cy-2);
-  ctx.moveTo(cx-93,cy+2);ctx.lineTo(cx-100,cy+6);ctx.stroke();
-}
 
 // ── Constellation lines + stars ──
 function drawConst(c,alpha){
@@ -866,9 +766,6 @@ function render(t){
 
   // Ecliptic (behind everything)
   drawEcliptic();
-
-  // Constellation art (faint, behind lines)
-  ALL_C.forEach(c=>drawArt(c));
 
   // Constellation lines + stars
   ALL_C.forEach(c=>drawConst(c,1));

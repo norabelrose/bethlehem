@@ -28,6 +28,43 @@ mar   = eph["mars barycenter"]
 regulus = Star(ra_hours=(10, 8, 22.311), dec_degrees=(11, 58, 1.95))
 spica   = Star(ra_hours=(13, 25, 11.579), dec_degrees=(-11, 9, 40.75))
 
+# Virgo constellation stars — J2000 catalog coordinates
+# Heze and Zaniah have Dec between -1° and 0°, so decimal degrees avoid the -0 tuple problem
+VIRGO_STARS = {
+    "spica":        Star(ra_hours=(13, 25, 11.579), dec_degrees=(-11,  9, 40.75)),
+    "zavijava":     Star(ra_hours=(11, 50, 41.718), dec_degrees=(  1, 45, 52.99)),
+    "porrima":      Star(ra_hours=(12, 41, 39.644), dec_degrees=( -1, 26, 57.75)),
+    "auva":         Star(ra_hours=(12, 55, 36.208), dec_degrees=(  3, 23, 50.89)),
+    "vindemiatrix": Star(ra_hours=(13,  2, 10.598), dec_degrees=( 10, 57, 32.94)),
+    "heze":         Star(ra_hours=(13, 34, 41.591), dec_degrees=-0.5958),
+    "zaniah":       Star(ra_hours=(12, 19, 54.358), dec_degrees=-0.6668),
+    "syrma":        Star(ra_hours=(14, 16,  0.874), dec_degrees=( -6,  0,  2.03)),
+    "mu_vir":       Star(ra_hours=(14, 43,  3.522), dec_degrees=( -5, 39, 29.53)),
+    "tau_vir":      Star(ra_hours=(14,  1, 38.780), dec_degrees=(  1, 32, 40.50)),
+    "109_vir":      Star(ra_hours=(14, 46, 14.990), dec_degrees=(  1, 53, 34.60)),
+}
+
+# Hydra constellation stars — J2000 catalog coordinates (HIP catalog)
+# ι Hya Dec is -1°08′33.6″: tuple (-1,8,33.6) works since degree component is non-zero negative
+HYDRA_STARS = {
+    "delta_hya":   Star(ra_hours=( 8, 37, 39.41), dec_degrees=( 5, 42, 13.7)),
+    "sigma_hya":   Star(ra_hours=( 8, 38, 45.45), dec_degrees=( 3, 20, 29.3)),  # Minchir
+    "eta_hya":     Star(ra_hours=( 8, 43, 13.49), dec_degrees=( 3, 23, 55.2)),
+    "epsilon_hya": Star(ra_hours=( 8, 46, 46.65), dec_degrees=( 6, 25,  8.1)),  # Ashlesha
+    "rho_hya":     Star(ra_hours=( 8, 48, 25.98), dec_degrees=( 5, 50, 16.4)),
+    "zeta_hya":    Star(ra_hours=( 8, 55, 23.68), dec_degrees=( 5, 56, 43.9)),  # Hydrobius
+    "theta_hya":   Star(ra_hours=( 9, 14, 21.79), dec_degrees=( 2, 18, 54.1)),
+    "alphard":     Star(ra_hours=( 9, 27, 35.25), dec_degrees=(-8, 39, 31.3)),  # α Hya
+    "iota_hya":    Star(ra_hours=( 9, 39, 51.33), dec_degrees=(-1,  8, 33.6)),
+    "lambda_hya":  Star(ra_hours=(10, 10, 35.40), dec_degrees=(-12, 21, 13.8)),
+    "mu_hya":      Star(ra_hours=(10, 26,  5.51), dec_degrees=(-16, 50,  9.9)),
+    "nu_hya":      Star(ra_hours=(10, 49, 37.43), dec_degrees=(-16, 11, 38.9)),
+    "xi_hya":      Star(ra_hours=(11, 33,  0.26), dec_degrees=(-31, 51, 27.1)),
+    "beta_hya":    Star(ra_hours=(11, 52, 54.56), dec_degrees=(-33, 54, 29.3)),
+    "gamma_hya":   Star(ra_hours=(13, 18, 55.25), dec_degrees=(-23, 10, 17.1)),  # Naga
+    "pi_hya":      Star(ra_hours=(14,  6, 22.27), dec_degrees=(-26, 40, 55.3)),
+}
+
 jerusalem = wgs84.latlon(31.7683 * N, 35.2137 * E)
 
 # ---------------------------------------------------------------------------
@@ -76,6 +113,28 @@ for name, body in bodies.items():
         "dec": [round(float(v), 4) for v in dec_d],
     }
 
+# Fixed Virgo stars — one apparent position at midpoint of date range
+t_mid = ts.tt(-1, 7, 1)  # ~Jul 2 BC
+virgo_positions = {}
+for name, star in VIRGO_STARS.items():
+    print(f"  {name} (fixed)…", flush=True)
+    app = observer.at(t_mid).observe(star).apparent()
+    ra, dec, _ = app.radec()
+    virgo_positions[name] = {
+        "ra":  round(float(ra.hours),   4),
+        "dec": round(float(dec.degrees), 4),
+    }
+
+hydra_positions = {}
+for name, star in HYDRA_STARS.items():
+    print(f"  {name} (fixed)…", flush=True)
+    app = observer.at(t_mid).observe(star).apparent()
+    ra, dec, _ = app.radec()
+    hydra_positions[name] = {
+        "ra":  round(float(ra.hours),   4),
+        "dec": round(float(dec.degrees), 4),
+    }
+
 # Also export the JD and calendar date for each day
 def jd_to_calendar(jd):
     # Proleptic Gregorian via algorithm
@@ -108,6 +167,8 @@ output = {
     "startJD": days[0],
     "dates": dates,
     "bodies": results,
+    "virgo_stars": virgo_positions,
+    "hydra_stars": hydra_positions,
 }
 
 out_path = "ephemeris_data.json"

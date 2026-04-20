@@ -709,42 +709,6 @@ else:
 print()
 
 # ---------------------------------------------------------------------------
-# 7. Formatted position table (every 10 days)
-# ---------------------------------------------------------------------------
-print(SEP)
-print("POSITION TABLE — every 10 days, Jerusalem observer")
-print("Ecl. lon in degrees (J2000 ecliptic).  Sep columns in arcminutes.")
-print(SEP)
-
-hdr = (
-    f"{'Date':<26}  {'J lon':>7}  {'V lon':>7}  {'R lon':>7}  "
-    f"{'J elong':>8}  {'J–V':>7}  {'J–R':>7}  {'Motion':<8}"
-)
-print(hdr)
-print("—" * len(hdr))
-
-for i in range(0, n_days, 10):
-    t = times_d[i]
-    if i + 5 < n_days:
-        dl = (jup_lon_jer[i + 5] - jup_lon_jer[i] + 360) % 360
-        if dl > 180:
-            dl -= 360
-        mot = "Retro" if dl < -0.02 else "Direct"
-    else:
-        mot = "—"
-
-    print(
-        f"  {fmt(t):<24}  "
-        f"{jup_lon_jer[i]:7.2f}  "
-        f"{ven_lon_jer[i]:7.2f}  "
-        f"{reg_lon_jer[i]:7.2f}  "
-        f"{jup_elong_jer[i]:8.2f}°  "
-        f"{jv_sep_jer[i]*60:7.1f}′  "
-        f"{jr_sep_jer[i]*60:7.1f}′  "
-        f"{mot}"
-    )
-
-# ---------------------------------------------------------------------------
 # Event 7: Total lunar eclipse — 1 BC January
 # ---------------------------------------------------------------------------
 from skyfield import eclipselib
