@@ -9,6 +9,7 @@ and Dec → y.
 """
 
 import json
+import numpy as np
 from skyfield.api import load, Star, wgs84, N, E
 
 
@@ -135,6 +136,13 @@ for name, star in HYDRA_STARS.items():
         "dec": round(float(dec.degrees), 4),
     }
 
+# Moon illumination fraction (geocentric elongation → (1 - cos θ) / 2)
+print("  moon_phase…", flush=True)
+_moon_app = earth.at(times).observe(moon).apparent()  # type: ignore[union-attr]
+_sun_app  = earth.at(times).observe(sun).apparent()   # type: ignore[union-attr]
+_elong    = _moon_app.separation_from(_sun_app).degrees
+moon_phase = list(np.round((1 - np.cos(np.radians(_elong))) / 2, 3).tolist())
+
 # Also export the JD and calendar date for each day
 def jd_to_calendar(jd):
     # Proleptic Gregorian via algorithm
@@ -167,6 +175,7 @@ output = {
     "startJD": days[0],
     "dates": dates,
     "bodies": results,
+    "moon_phase": moon_phase,
     "virgo_stars": virgo_positions,
     "hydra_stars": hydra_positions,
 }

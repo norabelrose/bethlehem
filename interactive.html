@@ -302,7 +302,7 @@
 <div id="controls">
   <button id="btn-play">&#9654; PLAY</button>
   <label>DATE</label>
-  <input type="range" id="timeline" min="200" max="737" value="208">
+  <input type="range" id="timeline" min="200" max="760" value="209">
   <div id="speed-wrap">
     <label>SPEED</label>
     <input type="range" id="speed" min="1" max="10" value="3">
@@ -361,31 +361,37 @@ document.querySelectorAll('.tog-btn').forEach(btn => {
 // ═══════════════════════════════════════════════
 // t = day index: 0 = 1 Jan 3 BC, 365 = 1 Jan 2 BC
 const EVENTS = [
-  { t:208, date:"28 Jul 3 BC", title:"\u2605 Heliacal Rising of Jupiter",
-    desc:"Jupiter emerges from behind the Sun and becomes visible for the first time in the pre-dawn sky over Babylon \u2014 its heliacal rising. The Magi allude to the heliacal rising in Matthew 2:2, saying \u201cwe saw his star at its rising (ἐν τῇ ἀνατολῇ).\u201d When Herod asks for \u201cthe exact time the star had appeared\u201d (Matthew 2:7), the Magi give him this date. About one year and four months elapse between the heliacal rising and the Magi's visit to the Holy Family. Herod rounds this figure up to two years when he orders the Slaughter of the Innocents, in order to ensure he eliminates the Christ child (Matthew 2:16).",
+  { t:209, date:"26 Jul 3 BC \u2014 before sunrise", title:"\u{1F315} Heliacal Rising of Jupiter",
+    desc:"On a full moon, Jupiter emerges from behind the Sun and becomes visible for the first time before dawn \u2014 its heliacal rising. The Magi allude to the heliacal rising in Matthew 2:2, saying \u201cwe saw his star at its rising (ἐν τῇ ἀνατολῇ).\u201d When Herod asks for \u201cthe exact time the star had appeared\u201d (Matthew 2:7), the Magi give him this date. About one year and four months elapse between the heliacal rising and the Magi's visit to the Holy Family. Herod rounds this figure up to two years when he orders the Slaughter of the Innocents, in order to ensure he eliminates the Christ child (Matthew 2:16).",
     highlight:["jupiter"] },
-  { t:221, date:"10 Aug 3 BC", title:"Jupiter\u2013Venus Conjunction in Leo",
+  { t:221, date:"10 Aug 3 BC \u2014 before sunrise", title:"\u{1F317} Jupiter\u2013Venus Conjunction",
     desc:"Jupiter and Venus converge to within 4.3 arcminutes in the morning sky in Leo \u2014 nearly appearing as a single object to the naked eye. At closest approach (~08:00 local time) both planets stand 50\u00b0 above the eastern horizon. This is the first time an approach of less than 5 arcminutes had been seen in several centuries.",
     highlight:["jupiter","venus"] },
-  { t:251, date:"9 Sep 3 BC \u2014 6:15\u20137:45 p.m.", title:"\u2605 The Revelation 12 Sign \u2014 Rosh Hashanah",
+  { t:251, date:"9 Sep 3 BC \u2014 after sunset", title:"\u{1F312} Virgo Clothed with the Sun: 1st Day of Rosh Hashanah",
     desc:"John says \u201cA great sign appeared in heaven: a woman clothed with the sun, with the moon under her feet and a crown of twelve stars on her head\u201d (Rev. 12:1). This sign appeared on 9 Sept 3 BC, when the Sun clothed the body of Virgo, and the crescent New Moon rested just beneath her feet, ~90 min after sunset. It was 1 Tishrei on the Jewish calendar, the first day of the Rosh Hashanah new year festival, also known as the Day of Trumpets.",
     highlight:["sun","moon","virgo"] },
-  { t:253, date:"11 Sep 3 BC", title:"1st Jupiter\u2013Regulus Conjunction",
+  { t:253, date:"11 Sep 3 BC \u2014 before sunset", title:"\u{1F312} Jupiter\u2013Regulus Conjunction: 2nd Day of Rosh Hashanah",
     desc:"Jupiter makes its first conjunction with Regulus. This star has been associated with kings for at least three thousand years. The ancient Greek astronomer Geminus of Rhodes records that this star was called Basiliskos (\u201clittle king\u201d) in the 1st century before Christ, and the Babylonian text MUL.APIN calls this star Lugal (\u201cKing\u201d) around 1000 BC. The closest approach between Jupiter (king planet) and Regulus (king star) occurs at 5:01 P.M. Jerusalem solar time, just before sunset on the second day of Rosh Hashanah (2 Tishrei).",
     highlight:["jupiter","regulus"] },
-  { t:412, date:"16 Feb 2 BC", title:"2nd Jupiter\u2013Regulus Conjunction",
-    desc:"Jupiter enters retrograde and loops back to Regulus a second time. For three nights prior to this, Jupiter and Regulus are within 22 degrees of the Moon, which is nearly full. This makes it plausible that an ice crystal halo formed around the Moon on at least one of these winter nights, encircling both objects. An ancient Babylonian astrological text states: \u201cWhen a halo surrounds the Moon and Regulus stands within it, women will bear male children\u201d (Thompson, no. 97).",
+  { t:327.6, date:"24 Nov 3 BC \u2014 10:59 p.m.", title:"\u{1F316} 1st Occultation of Regulus \u2014 Jupiter's 1st Station",
+    desc:"At 10:59 p.m. local solar time, the Moon passes directly in front of Regulus \u2014 the King Star \u2014 completely hiding it for about an hour before the star reappears at the Moon\u2019s opposite limb at 12:04 a.m. An occultation of Regulus by the Moon was among the most significant portents in Babylonian astrology. This event takes place on the same night Jupiter begins its retrograde loop back toward Regulus, making it one of the most astronomically remarkable nights of the entire 3\u20132 BC period.",
+    highlight:["moon","regulus"] },
+  { t:382.35, date:"18 Jan 2 BC \u2014 6:21 p.m.", title:"\u{1F315} 2nd Occultation of Regulus \u2014 Jupiter's Acronycal Rising",
+    desc:"The full moon occults Regulus a second time, this time from 6:21 p.m. to 7:06 p.m. local solar time. This occultation occurs on the same night that Jupiter rises just after sunset (its acronycal rising).",
+    highlight:["moon","regulus"] },
+  { t:411, date:"16 Feb 2 BC", title:"\u{1F315} 2nd Jupiter\u2013Regulus Conjunction",
+    desc:"On a full moon, Jupiter enters retrograde and starts looping back to Regulus a second time. For three nights prior to this, Jupiter and Regulus are within 22 degrees of the Moon, which is nearly full. This makes it plausible that an ice crystal halo formed around the Moon on at least one of these winter nights, encircling both objects. An ancient Babylonian astrological text states: \u201cWhen a halo surrounds the Moon and Regulus stands within it, women will bear male children\u201d (Thompson, no. 97).",
     highlight:["jupiter","regulus"] },
-  { t:492, date:"6 May 2 BC", title:"3rd Jupiter\u2013Regulus Conjunction",
+  { t:490, date:"6 May 2 BC", title:"\u{1F312} 3rd Jupiter\u2013Regulus Conjunction",
     desc:"Jupiter resumes direct motion and passes Regulus a third time \u2014 a triple crowning of the King Star. Separation: 46\u2032.",
     highlight:["jupiter","regulus"] },
-  { t:530, date:"15 Jun 2 BC", title:"\u2605 Jupiter\u2013Venus: The Great Conjunction",
-    desc:"Jupiter and Venus merge in Leo with a separation of only 0.585\u2032 (35\u2033) \u2014 appearing as a single brilliant star for over two hours.",
+  { t:530, date:"15 Jun 2 BC", title:"\u{1F315} Jupiter and Venus Merge",
+    desc:"On a full moon, Jupiter and Venus merge in Leo with a separation of only 35 seconds of arc, appearing as a single brilliant star for over two hours. The moon is visible on the eastern horizon during the conjunction.",
     highlight:["jupiter","venus"] },
   { t:723, date:"25 Dec 2 BC", title:"\u2605 Jupiter Stands Still over Bethlehem",
     desc:"Jupiter reaches its stationary point in the southern sky as seen from Jerusalem \u2014 appearing to \u2018stand still\u2019 over Bethlehem. The Magi visited the Holy Family on this date, give or take a couple of days.",
     highlight:["jupiter"] },
-  { t:737, date:"8 Jan 1 BC", title:"\u{1F311} Total Lunar Eclipse \u2014 Herod Falls Ill",
+  { t:737, date:"8 Jan 1 BC \u2014 12:42\u20132:20 a.m.", title:"\u{1F311} Total Lunar Eclipse \u2014 Herod Falls Ill",
     desc:"A total lunar eclipse visible across Judea. Josephus records that Herod the Great fell ill after an eclipse of the moon, and died before Passover (Antiquities 17.6.4). Andrew Steinmann and other scholars argue that this is the eclipse of 8 January 1 BC, just two weeks after the Magi visit the Holy Family. Josephus tells us that Herod left Jerusalem to get medical treatment after the eclipse, so the Slaughter of the Innocents probably happened before then, in the first week of January.",
     highlight:["moon"] }
 ];
@@ -507,7 +513,7 @@ const ALL_C=[CONST_LEO,CONST_VIRGO,CONST_HYDRA];
 let EPH=null;
 fetch('ephemeris_data.json')
   .then(r=>r.json())
-  .then(data=>{EPH=data;if(data.virgo_stars)buildVirgo(data.virgo_stars);if(data.hydra_stars)buildHydra(data.hydra_stars);setT(208);})
+  .then(data=>{EPH=data;if(data.virgo_stars)buildVirgo(data.virgo_stars);if(data.hydra_stars)buildHydra(data.hydra_stars);setT(209);})
   .catch(e=>console.error('Failed to load ephemeris:',e));
 
 function getPos(name,dayIdx){
@@ -698,7 +704,16 @@ function drawMoon(t){
   if(!show.moon)return;
   const p=getPos('moon',t);if(!inFrame(p))return;const px=p.x*W,py=p.y*H;const r=9;
 
-  // Blood moon effect for Jan 8 1 BC eclipse (t=737)
+  // Phase from exported data
+  let f=0.5,waxing=true;
+  if(EPH&&EPH.moon_phase){
+    const ti=Math.max(0,Math.min(Math.round(t),EPH.moon_phase.length-1));
+    f=EPH.moon_phase[ti];
+    const ti2=Math.min(ti+1,EPH.moon_phase.length-1);
+    waxing=EPH.moon_phase[ti2]>=f;
+  }
+
+  // Eclipse effect (Jan 8 1 BC, t≈737)
   const eclipseA=Math.max(0,1-Math.abs(t-737));
   const moonColor=eclipseA>0
     ?`rgba(${Math.round(200+55*eclipseA)},${Math.round(220*(1-eclipseA*0.8))},${Math.round(255*(1-eclipseA))},1)`
@@ -707,15 +722,56 @@ function drawMoon(t){
     ?`rgba(220,60,20,${0.35*eclipseA})`
     :'rgba(200,220,255,0.25)';
 
+  // Glow halo
   const g=ctx.createRadialGradient(px,py,0,px,py,r*5);
   g.addColorStop(0,glowColor);g.addColorStop(1,'rgba(0,0,0,0)');
   ctx.beginPath();ctx.arc(px,py,r*5,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
 
   ctx.save();
-  ctx.beginPath();ctx.arc(px,py,r,-Math.PI*.5,Math.PI*1.5);ctx.fillStyle=moonColor;ctx.fill();
-  if(eclipseA<0.8){
-    ctx.beginPath();ctx.arc(px+r*.4,py,r*.85,-Math.PI*.5,Math.PI*1.5);ctx.fillStyle='#0a1535';ctx.fill();
+  // Clip everything to the moon disk
+  ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);ctx.clip();
+
+  // Dark background
+  ctx.fillStyle='#060e24';
+  ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);ctx.fill();
+
+  // Phase rendering: lit semicircle (pie slice from centre) + terminator ellipse overlay.
+  // ex = half-width of terminator ellipse = r*|1-2f|
+  // Crescent (f<0.5): dark ellipse painted over the lit semicircle on the lit side
+  // Gibbous  (f>0.5): lit  ellipse painted over the dark side
+  if(f>0.01){
+    const ex=r*Math.abs(1-2*f);
+    // 1. Lit semicircle
+    ctx.fillStyle=moonColor;
+    ctx.beginPath();ctx.moveTo(px,py);
+    if(waxing) ctx.arc(px,py,r,-Math.PI/2, Math.PI/2,false); // right half CW
+    else       ctx.arc(px,py,r, Math.PI/2,-Math.PI/2,false); // left  half CW
+    ctx.closePath();ctx.fill();
+    // 2. Terminator ellipse overlay
+    if(f<0.5){
+      // Crescent: dark half-ellipse on the lit side trims it back
+      ctx.fillStyle='#060e24';
+      ctx.beginPath();ctx.moveTo(px,py);
+      if(waxing) ctx.ellipse(px,py,ex,r,0,-Math.PI/2, Math.PI/2,false); // right CW
+      else       ctx.ellipse(px,py,ex,r,0,-Math.PI/2, Math.PI/2,true);  // left  CCW
+      ctx.closePath();ctx.fill();
+    }else if(f<0.99){
+      // Gibbous: lit half-ellipse on the dark side extends lit area
+      ctx.fillStyle=moonColor;
+      ctx.beginPath();ctx.moveTo(px,py);
+      if(waxing) ctx.ellipse(px,py,ex,r,0,-Math.PI/2, Math.PI/2,true);  // left  CCW
+      else       ctx.ellipse(px,py,ex,r,0,-Math.PI/2, Math.PI/2,false); // right CW
+      ctx.closePath();ctx.fill();
+    }else{
+      // Full: fill the other semicircle too
+      ctx.fillStyle=moonColor;
+      ctx.beginPath();ctx.moveTo(px,py);
+      if(waxing) ctx.arc(px,py,r,Math.PI/2,-Math.PI/2,false);
+      else       ctx.arc(px,py,r,-Math.PI/2,Math.PI/2,false);
+      ctx.closePath();ctx.fill();
+    }
   }
+
   ctx.restore();
 
   if(show.labels){
@@ -788,6 +844,43 @@ function render(t){
   const ev=getEventAtT(t);
   if(ev&&ev.highlight)drawHighlights(ev.highlight,t);
 
+  // Moon–Regulus occultation glow (t≈327, 24–25 Nov 3 BC)
+  if(t>=307&&t<=347&&show.moon){
+    const moonPos=getPos('moon',t);
+    const regStar=CONST_LEO.stars.find(s=>s.name==='Regulus');
+    if(moonPos&&regStar&&inFrame(moonPos)){
+      const dx=(regStar.x-moonPos.x)*W,dy=(regStar.y-moonPos.y)*H;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      const fade=Math.max(0,1-Math.abs(t-327)/15);
+      const prox=Math.max(0,1-dist/70);
+      const a=fade*prox;
+      if(a>0.01){
+        // line connecting moon to regulus
+        ctx.save();
+        ctx.beginPath();ctx.moveTo(moonPos.x*W,moonPos.y*H);ctx.lineTo(regStar.x*W,regStar.y*H);
+        ctx.strokeStyle=`rgba(200,220,255,${a*0.5})`;ctx.lineWidth=1+a*2;ctx.stroke();
+        // glow around regulus
+        const rg=ctx.createRadialGradient(regStar.x*W,regStar.y*H,0,regStar.x*W,regStar.y*H,32);
+        rg.addColorStop(0,`rgba(200,220,255,${a*0.35})`);rg.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle=rg;ctx.beginPath();ctx.arc(regStar.x*W,regStar.y*H,32,0,Math.PI*2);ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+
+  // Jupiter station ring (t≈328, 25 Nov 3 BC)
+  if(t>=308&&t<=348&&show.planets){
+    const jp=getPos('jupiter',t);
+    if(jp&&inFrame(jp)){
+      const a=Math.max(0,1-Math.abs(t-328)/15);
+      ctx.save();
+      ctx.beginPath();ctx.arc(jp.x*W,jp.y*H,22+a*8,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(255,215,0,${a*0.45})`;ctx.lineWidth=1.5;
+      ctx.setLineDash([3,5]);ctx.stroke();ctx.setLineDash([]);
+      ctx.restore();
+    }
+  }
+
   // Sep 11 3 BC special glow (day 253)
   if(t>=233&&t<=273){
     const a=Math.max(0,1-Math.abs(t-253)/20);
@@ -827,9 +920,9 @@ function updatePanel(t){
 }
 
 function setT(t){
-  currentT=clamp(t,200,737);
+  currentT=clamp(t,200,760);
   slider.value=currentT;
-  slider.style.setProperty('--pct',((currentT-200)/(737-200)*100)+'%');
+  slider.style.setProperty('--pct',((currentT-200)/(760-200)*100)+'%');
   updatePanel(currentT);
   render(currentT);
 }
@@ -839,14 +932,14 @@ function loop(ts){
   if(!lastTime)lastTime=ts;
   const dt=ts-lastTime;lastTime=ts;
   currentT+=dt*parseInt(speedSlider.value)*0.015; // ~1 day/frame at speed 1
-  if(currentT>737){currentT=737;playing=false;btnPlay.textContent='\u25B6 PLAY';lastTime=null;}
+  if(currentT>760){currentT=760;playing=false;btnPlay.textContent='\u25B6 PLAY';lastTime=null;}
   setT(currentT);
   if(playing)animId=requestAnimationFrame(loop);
 }
 
 btnPlay.addEventListener('click',()=>{
   if(playing){playing=false;btnPlay.textContent='\u25B6 PLAY';lastTime=null;cancelAnimationFrame(animId);}
-  else{if(currentT>=737)setT(200);playing=true;btnPlay.textContent='\u23F8 PAUSE';lastTime=null;animId=requestAnimationFrame(loop);}
+  else{if(currentT>=760)setT(200);playing=true;btnPlay.textContent='\u23F8 PAUSE';lastTime=null;animId=requestAnimationFrame(loop);}
 });
 
 slider.addEventListener('input',()=>setT(parseInt(slider.value)));
@@ -866,7 +959,7 @@ EVENTS.forEach(ev=>{
 // Continuous twinkling
 function bgLoop(){if(!playing)render(currentT);requestAnimationFrame(bgLoop)}
 
-setT(208);
+setT(209);
 bgLoop();
 </script>
 </body>

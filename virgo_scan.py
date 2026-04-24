@@ -2,7 +2,7 @@
 """
 virgo_scan.py
 
-Scans 1 Jul 3 BC – 31 Dec 3 BC for dates when the Sun is "in" the
+Scans a configurable date range for dates when the Sun is "in" the
 constellation Virgo and the Moon is near the "feet" of Virgo,
 as seen from a chosen location.  The combination is associated with the sign
 described in Revelation 12:1.
@@ -26,10 +26,11 @@ CITIES = {
     "antioch": (36.2021, 36.1601, "Antioch"),
     "athens": (37.9838, 23.7275, "Athens"),
     "rome": (41.9028, 12.4964, "Rome"),
+    "fatima": (39.6284, -8.6718, "Fátima"),
 }
 
 parser = argparse.ArgumentParser(
-    description="Scan 1 Jul – 31 Dec 3 BC for Sun-in-Virgo + Moon-at-feet-of-Virgo.",
+    description="Scan a date range for Sun-in-Virgo + Moon-at-feet-of-Virgo.",
     epilog="Available cities: " + ", ".join(CITIES),
 )
 parser.add_argument(
@@ -42,6 +43,14 @@ parser.add_argument(
 parser.add_argument("--lat", type=float, metavar="DEG", help="Custom latitude °N")
 parser.add_argument("--lon", type=float, metavar="DEG", help="Custom longitude °E")
 parser.add_argument("--name", type=str, metavar="NAME", default="Custom site")
+parser.add_argument(
+    "--start", type=int, nargs=2, metavar=("YEAR", "MONTH"), default=[-2, 7],
+    help="Start year and month (astronomical year, default: -2 7 = Jul 3 BC)",
+)
+parser.add_argument(
+    "--end", type=int, nargs=2, metavar=("YEAR", "MONTH"), default=[-2, 12],
+    help="End year and month (astronomical year, default: -2 12 = Dec 3 BC)",
+)
 
 args = parser.parse_args()
 
@@ -54,6 +63,11 @@ else:
     if key not in CITIES:
         parser.error(f"Unknown city '{args.location}'. Available: {', '.join(CITIES)}")
     obs_lat, obs_lon, obs_name = CITIES[key]
+
+start_year, start_month = args.start
+end_year, end_month = args.end
+if (start_year, start_month) > (end_year, end_month):
+    parser.error("--start must not be later than --end")
 
 # ── Constellation boundary approximations (ICRS/J2000, degrees) ───────────────
 #
@@ -167,15 +181,37 @@ def fmt_julian(t) -> str:
 
 
 # ── Build list of days to scan ────────────────────────────────────────────────
-YEAR = -2  # astronomical year for 3 BC
-MONTH_LENGTHS = {7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
-scan_days = [
-    (YEAR, mo, da) for mo in range(7, 13) for da in range(1, MONTH_LENGTHS[mo] + 1)
-]
+def _days_in_month(year: int, month: int) -> int:
+    is_leap = (year % 4 == 0) and (year % 100 != 0 or year % 400 == 0)
+    return [0, 31, 29 if is_leap else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month]
+
+
+def _era(y: int) -> str:
+    return f"{-y+1} BC" if y <= 0 else f"{y} AD"
+
+
+def _month_label(year: int, month: int) -> str:
+    return f"1 {MONTHS[month-1]} {_era(year)}"
+
+
+def _last_day_label(year: int, month: int) -> str:
+    d = _days_in_month(year, month)
+    return f"{d} {MONTHS[month-1]} {_era(year)}"
+
+
+scan_days = []
+yr, mo = start_year, start_month
+while (yr, mo) <= (end_year, end_month):
+    for da in range(1, _days_in_month(yr, mo) + 1):
+        scan_days.append((yr, mo, da))
+    mo += 1
+    if mo > 12:
+        mo, yr = 1, yr + 1
 
 print(f"Observer  : {obs_name}  ({obs_lat:.4f}°N, {obs_lon:.4f}°E)")
 print(
-    f"Scan range: 1 Jul 3 BC – 31 Dec 3 BC  ({len(scan_days)} days, noon TT each day)"
+    f"Scan range: {_month_label(start_year, start_month)} – "
+    f"{_last_day_label(end_year, end_month)}  ({len(scan_days)} days, noon TT each day)"
 )
 print()
 print(
@@ -289,7 +325,7 @@ for yr, mo, da in scan_days:
     prev_virgo = cur_virgo
 
 if in_virgo_run and in_virgo_run[-1][1] is None:
-    in_virgo_run[-1][1] = fmt(ts.tt(YEAR, 12, 31, 12))
+    in_virgo_run[-1][1] = fmt(ts.tt(end_year, end_month, _days_in_month(end_year, end_month), 12))
 
 for start, end in in_virgo_run:
     print(f"  {start}  –  {end}")

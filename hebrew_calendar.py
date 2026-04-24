@@ -52,11 +52,11 @@ Examples:
     p.add_argument(
         "--equinox-buffer",
         type=float,
-        default=3.0,
+        default=0.0,
         metavar="DAYS",
         help=(
             "allow the Nisan full moon to precede the spring equinox by this many days "
-            "(accounts for imprecise ancient equinox reckoning; default: 3)"
+            "(accounts for imprecise ancient equinox reckoning; default: 0)"
         ),
     )
     p.add_argument(
