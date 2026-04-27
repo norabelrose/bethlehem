@@ -187,3 +187,31 @@ with open(out_path, "w") as f:
 import os
 size_mb = os.path.getsize(out_path) / 1e6
 print(f"\nWrote {out_path} ({size_mb:.1f} MB, {len(days)} days)")
+
+# Build standalone HTML with JSON embedded
+import re
+with open("interactive.html") as f:
+    html = f.read()
+
+json_str = json.dumps(output, separators=(",", ":"))
+inline_script = f"<script>const EPH_INLINE={json_str};</script>"
+
+# Replace the fetch(...) block with direct assignment from the inline data
+html = re.sub(
+    r"fetch\('ephemeris_data\.json'\)\s*\n"
+    r"\s*\.then\(r=>r\.json\(\)\)\s*\n"
+    r"\s*\.then\(data=>\{EPH=data;.*?\}\)\s*\n"
+    r"\s*\.catch\(e=>console\.error\('Failed to load ephemeris:',e\)\);",
+    "setTimeout(()=>{EPH=EPH_INLINE;if(EPH.virgo_stars)buildVirgo(EPH.virgo_stars);if(EPH.hydra_stars)buildHydra(EPH.hydra_stars);setT(209);},0);",
+    html,
+)
+
+# Inject the data script just before the closing </head>
+html = html.replace("</head>", f"{inline_script}\n</head>", 1)
+
+standalone_path = "interactive_standalone.html"
+with open(standalone_path, "w") as f:
+    f.write(html)
+
+standalone_mb = os.path.getsize(standalone_path) / 1e6
+print(f"Wrote {standalone_path} ({standalone_mb:.1f} MB)")

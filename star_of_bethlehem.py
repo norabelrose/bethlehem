@@ -248,16 +248,20 @@ def event_1_jv_conjunctions(ctx):
         app_jup_jer = (ctx.earth + ctx.jerusalem).at(t_jv_jer).observe(ctx.jup).apparent()
         app_ven_jer = (ctx.earth + ctx.jerusalem).at(t_jv_jer).observe(ctx.ven).apparent()
         app_moon_jer = (ctx.earth + ctx.jerusalem).at(t_jv_jer).observe(ctx.moon).apparent()
+        app_reg_jer = (ctx.earth + ctx.jerusalem).at(t_jv_jer).observe(ctx.regulus).apparent()
         alt_jup_jer, az_jup_jer, _ = app_jup_jer.altaz(temperature_C=20, pressure_mbar=1013)
         alt_ven_jer, az_ven_jer, _ = app_ven_jer.altaz(temperature_C=20, pressure_mbar=1013)
         alt_moon_jer, az_moon_jer, _ = app_moon_jer.altaz(temperature_C=20, pressure_mbar=1013)
+        alt_reg_jer, az_reg_jer, _ = app_reg_jer.altaz(temperature_C=20, pressure_mbar=1013)
 
         app_jup_bab = (ctx.earth + ctx.babylon).at(t_jv_bab).observe(ctx.jup).apparent()
         app_ven_bab = (ctx.earth + ctx.babylon).at(t_jv_bab).observe(ctx.ven).apparent()
         app_moon_bab = (ctx.earth + ctx.babylon).at(t_jv_bab).observe(ctx.moon).apparent()
+        app_reg_bab = (ctx.earth + ctx.babylon).at(t_jv_bab).observe(ctx.regulus).apparent()
         alt_jup_bab, az_jup_bab, _ = app_jup_bab.altaz(temperature_C=20, pressure_mbar=1013)
         alt_ven_bab, az_ven_bab, _ = app_ven_bab.altaz(temperature_C=20, pressure_mbar=1013)
         alt_moon_bab, az_moon_bab, _ = app_moon_bab.altaz(temperature_C=20, pressure_mbar=1013)
+        alt_reg_bab, az_reg_bab, _ = app_reg_bab.altaz(temperature_C=20, pressure_mbar=1013)
 
         # Illumination fraction from elongation (geocentric, same for both sites)
         moon_elong = elong_arr(ctx, ctx.jerusalem, ctx.moon, t1)[0]
@@ -277,8 +281,8 @@ def event_1_jv_conjunctions(ctx):
                                entering=False, threshold=threshold)
             return t_en, t_ex
 
-        w1_jer = _window(ctx.jerusalem, zv_jer, _1M)
-        w1_bab = _window(ctx.babylon,   zv_bab, _1M)
+        w1_jer = _window(ctx.jerusalem, zv_jer, 2 * _1M)
+        w1_bab = _window(ctx.babylon,   zv_bab, 2 * _1M)
         wd_jer = _window(ctx.jerusalem, zv_jer, _JV_WINDOW)
         wd_bab = _window(ctx.babylon,   zv_bab, _JV_WINDOW)
 
@@ -294,6 +298,7 @@ def event_1_jv_conjunctions(ctx):
         print("    Altitude at conjunction:")
         print(f"      Jupiter : alt {alt_jup_jer.degrees:+6.2f}°   az {az_jup_jer.degrees:6.2f}°")
         print(f"      Venus   : alt {alt_ven_jer.degrees:+6.2f}°   az {az_ven_jer.degrees:6.2f}°")
+        print(f"      Regulus : alt {alt_reg_jer.degrees:+6.2f}°   az {az_reg_jer.degrees:6.2f}°")
         print(f"      Moon    : alt {alt_moon_jer.degrees:+6.2f}°   az {az_moon_jer.degrees:6.2f}°   illumination {moon_illum:.0f}%")
         if wd_jer:
             t_en, t_ex = wd_jer
@@ -303,7 +308,7 @@ def event_1_jv_conjunctions(ctx):
             print(f"      Duration: {t_ex.tt - t_en.tt:.2f} days")
         if w1_jer:
             t_en, t_ex = w1_jer
-            print("    Within 1′ of separation:")
+            print("    Within 2′ of separation:")
             print(f"      Enter : {fmt(t_en, hhmm=True)}  (local {_lst_str(t_en, 35.2137)})")
             print(f"      Leave : {fmt(t_ex, hhmm=True)}  (local {_lst_str(t_ex, 35.2137)})")
             print(f"      Duration: {(t_ex.tt - t_en.tt) * 1440:.1f} min")
@@ -314,6 +319,7 @@ def event_1_jv_conjunctions(ctx):
         print("    Altitude at conjunction:")
         print(f"      Jupiter : alt {alt_jup_bab.degrees:+6.2f}°   az {az_jup_bab.degrees:6.2f}°")
         print(f"      Venus   : alt {alt_ven_bab.degrees:+6.2f}°   az {az_ven_bab.degrees:6.2f}°")
+        print(f"      Regulus : alt {alt_reg_bab.degrees:+6.2f}°   az {az_reg_bab.degrees:6.2f}°")
         print(f"      Moon    : alt {alt_moon_bab.degrees:+6.2f}°   az {az_moon_bab.degrees:6.2f}°   illumination {moon_illum:.0f}%")
         if wd_bab:
             t_en, t_ex = wd_bab
@@ -323,7 +329,7 @@ def event_1_jv_conjunctions(ctx):
             print(f"      Duration: {t_ex.tt - t_en.tt:.2f} days")
         if w1_bab:
             t_en, t_ex = w1_bab
-            print("    Within 1′ of separation:")
+            print("    Within 2′ of separation:")
             print(f"      Enter : {fmt(t_en, hhmm=True)}  (local {_lst_str(t_en, 44.4215)})")
             print(f"      Leave : {fmt(t_ex, hhmm=True)}  (local {_lst_str(t_ex, 44.4215)})")
             print(f"      Duration: {(t_ex.tt - t_en.tt) * 1440:.1f} min")
@@ -518,12 +524,67 @@ def event_4_stationary_points(ctx):
         print(f"    Regulus sets      : {_fmt_evt(t_reg_set)}")
         print(f"    Moonrise          : {_fmt_evt(t_moon_rise)}")
 
-        # if (idx, kind) == stations[-1]:
-        #     print(f"    Daily lon motion — preceding 14 days:")
-        #     for k in range(idx - 14, idx):
-        #         if 0 <= k < len(dlon_day):
-        #             print(f"      {fmt(ctx.times_d[k])} → {fmt(ctx.times_d[k+1])}"
-        #                   f"  {dlon_day[k]*60:+.3f}′/day")
+    print()
+
+
+def event_regulus_heliacal_rising(ctx, av_star: float = 13.5):
+    print(SEP)
+    print("EVENT: REGULUS HELIACAL RISING")
+    print(SEP)
+
+    reg_lon_jer  = ecl_lon_star_arr(ctx, ctx.jerusalem, ctx.regulus, ctx.times_d)
+    reg_elong_jer = elong_arr(ctx, ctx.jerusalem, ctx.regulus, ctx.times_d)
+    morning_reg  = ((reg_lon_jer - ctx.sun_lon_jer) % 360) > 180
+
+    heliacal = [
+        i for i in range(1, ctx.n_days)
+        if morning_reg[i]
+        and reg_elong_jer[i - 1] < av_star
+        and reg_elong_jer[i] >= av_star
+    ]
+
+    if not heliacal:
+        print(
+            f"  No heliacal risings found with AV = {av_star}°. "
+            "(Possibly Regulus didn't have a solar conjunction in range.)"
+        )
+    else:
+        for idx in heliacal:
+            f_reg = almanac.risings_and_settings(ctx.eph, ctx.regulus, ctx.jerusalem)
+            t0 = ctx.ts.tt_jd(ctx.jd_daily[max(0, idx - 2)])
+            t1 = ctx.ts.tt_jd(ctx.jd_daily[min(ctx.n_days - 1, idx + 3)])
+            hr_t, hr_ev = almanac.find_discrete(t0, t1, f_reg)
+            reg_rises = [hr_t[k] for k in range(len(hr_t)) if hr_ev[k] == 1]
+
+            t_hr = None
+            for rr in reg_rises:
+                if elong_arr(ctx, ctx.jerusalem, ctx.regulus, ctx.ts.tt_jd(np.array([rr.tt])))[0] >= av_star:
+                    t_hr = rr
+                    break
+            if t_hr is None:
+                t_hr = reg_rises[0] if reg_rises else ctx.times_d[idx]
+
+            el_hr  = elong_arr(ctx,      ctx.jerusalem, ctx.regulus, ctx.ts.tt_jd(np.array([t_hr.tt])))[0]
+            lon_hr = ecl_lon_star_arr(ctx, ctx.jerusalem, ctx.regulus, ctx.ts.tt_jd(np.array([t_hr.tt])))[0]
+
+            t_hr_arr = ctx.ts.tt_jd(np.array([t_hr.tt]))
+            jup_app_hr = (ctx.earth + ctx.jerusalem).at(t_hr).observe(ctx.jup).apparent()
+            jup_alt_hr, _, _ = jup_app_hr.altaz(temperature_C=20, pressure_mbar=1013)
+            ven_app_hr = (ctx.earth + ctx.jerusalem).at(t_hr).observe(ctx.ven).apparent()
+            ven_alt_hr, _, _ = ven_app_hr.altaz(temperature_C=20, pressure_mbar=1013)
+            moon_app_hr = (ctx.earth + ctx.jerusalem).at(t_hr).observe(ctx.moon).apparent()
+            moon_alt_hr, _, _ = moon_app_hr.altaz(temperature_C=20, pressure_mbar=1013)
+            moon_elong_hr = elong_arr(ctx, ctx.jerusalem, ctx.moon, t_hr_arr)[0]
+            moon_illum_hr = (1 - np.cos(np.radians(moon_elong_hr))) / 2 * 100
+
+            print()
+            print("  Heliacal Rising — Jerusalem")
+            print(f"    Date             : {fmt(t_hr, hhmm=True)}  (local {_lst_str(t_hr, 35.2137)})")
+            print(f"    Ecliptic lon     : {lon_hr:.3f}°")
+            print(f"    Solar elongation : {el_hr:.2f}°  (threshold {av_star}°)")
+            print(f"    Jupiter alt      : {jup_alt_hr.degrees:+.2f}°")
+            print(f"    Venus alt        : {ven_alt_hr.degrees:+.2f}°")
+            print(f"    Moon alt at rise : {moon_alt_hr.degrees:+.2f}°   illumination {moon_illum_hr:.0f}%")
     print()
 
 
@@ -589,12 +650,14 @@ def event_5_heliacal_rising(ctx, av: float):
                     t5 = ctx.ts.tt_jd((lo5 + hi5) / 2)
                     break
 
-            # Moon position and illumination at heliacal rising time
+            # Moon and Venus position at heliacal rising time
             t_hr_arr = ctx.ts.tt_jd(np.array([t_hr.tt]))
             moon_app_hr = (ctx.earth + ctx.jerusalem).at(t_hr).observe(ctx.moon).apparent()
             moon_alt_hr, _, _ = moon_app_hr.altaz(temperature_C=20, pressure_mbar=1013)
             moon_elong_hr = elong_arr(ctx, ctx.jerusalem, ctx.moon, t_hr_arr)[0]
             moon_illum_hr = (1 - np.cos(np.radians(moon_elong_hr))) / 2 * 100
+            ven_app_hr = (ctx.earth + ctx.jerusalem).at(t_hr).observe(ctx.ven).apparent()
+            ven_alt_hr, _, _ = ven_app_hr.altaz(temperature_C=20, pressure_mbar=1013)
 
             print()
             print("  Heliacal Rising — Jerusalem")
@@ -605,6 +668,7 @@ def event_5_heliacal_rising(ctx, av: float):
                 print(f"    Above 5° alt     : local {_lst_str(t5, 35.2137)}")
             else:
                 print(f"    Above 5° alt     : not reached within 4 h of rise")
+            print(f"    Venus alt at rise: {ven_alt_hr.degrees:+.2f}°")
             print(f"    Moon alt at rise : {moon_alt_hr.degrees:+.2f}°   illumination {moon_illum_hr:.0f}%")
     print()
 
@@ -814,108 +878,6 @@ def event_7_lunar_eclipse(ctx):
         print(f"    Totality  (U2–U3) : {_dur(t_U2, t_U3)}")
     print(    f"    Umbral    (U1–U4) : {_dur(t_U1, t_U4)}")
     print(    f"    Penumbral (P1–P4) : {_dur(t_P1, t_P4)}")
-    print()
-
-
-def event_jup_moon_dec(ctx):
-    print(SEP)
-    print("EVENT: JUPITER–MOON CLOSEST APPROACH — DECEMBER 2 BC")
-    print("Observer : Jerusalem  (visibility: both bodies above horizon, sun below)")
-    print(SEP)
-
-    # 15-minute grid over all of December 2 BC (astronomical year -1)
-    t0_dec = ctx.ts.tt(-1, 12, 1)
-    t1_dec = ctx.ts.tt(-1, 12, 31)
-    n_fine = int(round((t1_dec.tt - t0_dec.tt) * 24 * 4)) + 1  # every 15 min
-    jd_dec = np.linspace(t0_dec.tt, t1_dec.tt, n_fine)
-    t_dec  = ctx.ts.tt_jd(jd_dec)
-
-    sep  = sep_arr(ctx, ctx.jerusalem, ctx.jup, ctx.moon, t_dec)
-
-    # Visibility mask: Jupiter & Moon above horizon, Sun below
-    def _alts(body):
-        return (ctx.earth + ctx.jerusalem).at(t_dec).observe(body).apparent() \
-               .altaz(temperature_C=10, pressure_mbar=1013)[0].degrees
-
-    jup_alt  = _alts(ctx.jup)
-    moon_alt = _alts(ctx.moon)
-    sun_alt  = _alts(ctx.sun)
-    visible  = (jup_alt > 0) & (moon_alt > 0) & (sun_alt < 0)
-
-    # Masked separation: invisible moments get a large value so they won't be picked
-    sep_masked = np.where(visible, sep, 999.0)
-
-    # Find local minima in masked separation
-    minima = [
-        i for i in range(1, n_fine - 1)
-        if sep_masked[i] < sep_masked[i - 1] and sep_masked[i] < sep_masked[i + 1]
-        and sep_masked[i] < 999.0
-    ]
-
-    if not minima:
-        print("  No visible Jupiter–Moon close approach found in December 2 BC.\n")
-        return
-
-    # Print all visible close approaches for the month
-    print(f"  All visible close approaches in December 2 BC:")
-    print(f"  {'Date (TT)':>28}  {'Sep':>8}")
-    for idx in sorted(minima, key=lambda i: jd_dec[i]):
-        t_m = ctx.ts.tt_jd(jd_dec[idx])
-        print(f"  {fmt(t_m, hhmm=True):>28}  {sep_masked[idx]*60:>6.2f}′")
-    print()
-
-    # Zoom in on the best (smallest) minimum
-    best = min(minima, key=lambda i: sep_masked[i])
-    z0 = jd_dec[max(0, best - 2)]
-    z1 = jd_dec[min(n_fine - 1, best + 2)]
-    jd_z = np.linspace(z0, z1, 5760)  # 30-second resolution
-    t_z  = ctx.ts.tt_jd(jd_z)
-
-    sep_z    = sep_arr(ctx, ctx.jerusalem, ctx.jup, ctx.moon, t_z)
-    jup_z    = (ctx.earth + ctx.jerusalem).at(t_z).observe(ctx.jup).apparent() \
-               .altaz(temperature_C=10, pressure_mbar=1013)
-    moon_z   = (ctx.earth + ctx.jerusalem).at(t_z).observe(ctx.moon).apparent() \
-               .altaz(temperature_C=10, pressure_mbar=1013)
-    sun_z    = (ctx.earth + ctx.jerusalem).at(t_z).observe(ctx.sun).apparent() \
-               .altaz(temperature_C=10, pressure_mbar=1013)
-
-    vis_z = (jup_z[0].degrees > 0) & (moon_z[0].degrees > 0) & (sun_z[0].degrees < 0)
-    sep_z_masked = np.where(vis_z, sep_z, 999.0)
-    mi = int(np.argmin(sep_z_masked))
-
-    t_best = t_z[mi]
-
-    jup_alt_best  = jup_z[0].degrees[mi]
-    jup_az_best   = jup_z[1].degrees[mi]
-    moon_alt_best = moon_z[0].degrees[mi]
-    moon_az_best  = moon_z[1].degrees[mi]
-
-    print()
-    print(f"  Closest visible approach")
-    print(f"    Date             : {fmt(t_best, hhmm=True)}  (local {_lst_str(t_best, 35.2137)})")
-    print(f"    Separation       : {sep_z_masked[mi]*60:.2f}′  ({sep_z_masked[mi]:.4f}°)")
-    print(f"    Jupiter  : alt {jup_alt_best:+6.2f}°  az {jup_az_best:6.2f}°  ({_compass_pt(jup_az_best)})")
-    print(f"    Moon     : alt {moon_alt_best:+6.2f}°  az {moon_az_best:6.2f}°  ({_compass_pt(moon_az_best)})")
-    print(f"    Sun alt  : {sun_z[0].degrees[mi]:+.2f}°")
-    print()
-
-    # ±30 min context around the absolute (unmasked) closest approach
-    mi_abs = int(np.argmin(sep_z))
-    offsets = [("−30 min", -30), ("closest ", 0), ("+30 min", +30)]
-    print(f"  {'Offset':<9}  {'TT (UT≈)':>16}  {'Sep':>8}  {'Jup az':>8}  {'Moon az':>9}")
-    site = ctx.earth + ctx.jerusalem
-    for label, dm in offsets:
-        t_off = ctx.ts.tt_jd(jd_z[mi_abs] + dm / 1440.0)
-        jup_off  = site.at(t_off).observe(ctx.jup).apparent() \
-                   .altaz(temperature_C=10, pressure_mbar=1013)
-        moon_off = site.at(t_off).observe(ctx.moon).apparent() \
-                   .altaz(temperature_C=10, pressure_mbar=1013)
-        s_off = sep_arr(ctx, ctx.jerusalem, ctx.jup, ctx.moon,
-                        ctx.ts.tt_jd(np.array([t_off.tt])))[0]
-        jaz = jup_off[1].degrees
-        maz = moon_off[1].degrees
-        print(f"  {label}  {fmt(t_off, hhmm=True):>16}  {s_off*60:>6.2f}′  "
-              f"{jaz:>6.2f}° ({_compass_pt(jaz)})  {maz:>6.2f}° ({_compass_pt(maz)})")
     print()
 
 
@@ -1158,11 +1120,11 @@ def main():
     t_jr2_jd, t_jr3_jd = event_2_jr_conjunctions(ctx)
     event_3_moon_at_regulus(ctx, t_jr2_jd)
     event_4_stationary_points(ctx)
+    event_regulus_heliacal_rising(ctx)
     event_5_heliacal_rising(ctx, args.av)
     event_6_weekly_altaz(ctx, args.av)
     event_7_lunar_eclipse(ctx)
     event_moon_regulus_occultations(ctx)
-    event_jup_moon_dec(ctx)
     event_8_moon_regulus_after_jr3(ctx, t_jr3_jd)
 
     print()

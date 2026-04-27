@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>The Star of Bethlehem — Celestial Events 3–2 BC</title>
+<title>The Star of Bethlehem</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
 
@@ -24,8 +24,11 @@
     background: var(--deep-blue);
     color: var(--text);
     font-family: 'Crimson Text', serif;
-    overflow-x: hidden;
-    min-height: 100vh;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 4rem; /* space for fixed footer */
   }
 
   h1, h2, h3, .label, .event-title {
@@ -49,11 +52,48 @@
     font-style: italic;
   }
 
+  #main-layout {
+    display: flex;
+    align-items: stretch;
+    gap: 1.5rem;
+    max-width: 1200px;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    margin: 1rem auto 0;
+    padding: 0 1rem;
+  }
+
+  #left-col {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  #right-sidebar {
+    width: 300px;
+    flex-shrink: 0;
+    border: 1px solid rgba(240,192,96,0.12);
+    border-radius: 4px;
+    background: rgba(10,21,53,0.4);
+    padding: 0.8rem 0;
+    overflow-y: auto;
+  }
+
+  #right-sidebar h2 {
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+    padding: 0 1rem 0.6rem;
+    border-bottom: 1px solid rgba(240,192,96,0.1);
+    margin-bottom: 0.5rem;
+  }
+
   #sky-wrap {
     position: relative;
     width: 100%;
-    max-width: 900px;
-    margin: 1.5rem auto 0;
   }
   canvas#sky {
     width: 100%;
@@ -64,9 +104,7 @@
   }
 
   #controls {
-    max-width: 900px;
-    margin: 1.2rem auto 0;
-    padding: 0 1rem;
+    margin: 1.2rem 0 0;
     display: flex;
     align-items: center;
     gap: 1rem;
@@ -82,7 +120,7 @@
   #timeline {
     flex: 1;
     min-width: 200px;
-    -webkit-appearance: none;
+    appearance: none;
     height: 3px;
     background: linear-gradient(to right, var(--gold) 0%, var(--gold) var(--pct, 0%), var(--nebula) var(--pct, 0%), var(--nebula) 100%);
     border-radius: 2px;
@@ -122,7 +160,7 @@
     display: flex; align-items: center; gap: 0.5rem;
   }
   #speed {
-    -webkit-appearance: none;
+    appearance: none;
     width: 80px; height: 3px;
     background: var(--nebula);
     border-radius: 2px;
@@ -139,9 +177,7 @@
 
   /* Toggle panel */
   #toggle-panel {
-    max-width: 900px;
-    margin: 1rem auto 0;
-    padding: 0 1rem;
+    margin: 1rem 0 0;
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
@@ -193,9 +229,7 @@
   }
 
   #event-panel {
-    max-width: 900px;
-    margin: 1.4rem auto 0;
-    padding: 0 1rem;
+    margin: 1.4rem 0 0;
     min-height: 110px;
   }
   .event-card {
@@ -225,12 +259,10 @@
   }
 
   #event-list {
-    max-width: 900px;
-    margin: 2rem auto 3rem;
-    padding: 0 1rem;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 0.8rem;
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+    padding: 0 0.6rem;
   }
   .ev-item {
     border: 1px solid rgba(240,192,96,0.15);
@@ -265,79 +297,95 @@
   }
   .ev-item .ei-title {
     font-family: 'Cinzel', serif;
-    font-size: 0.85rem;
+    font-size: 0.78rem;
     color: var(--cream);
   }
 
   #legend {
-    max-width: 900px;
-    margin: 0 auto 1.5rem;
-    padding: 0 1rem;
-    display: flex; flex-wrap: wrap; gap: 1rem;
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    background: rgba(5,10,26,0.6);
+    padding: 0.5rem 0.7rem;
+    border-radius: 3px;
+    border: 1px solid rgba(240,192,96,0.08);
   }
   .leg { display: flex; align-items: center; gap: 0.45rem; font-size: 0.9rem; color: var(--dim); }
   .leg-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
 
   footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
     text-align: center;
-    padding: 1.5rem;
+    padding: 0.6rem 1.5rem;
     font-size: 0.85rem;
     color: var(--dim);
     font-style: italic;
     border-top: 1px solid rgba(240,192,96,0.1);
+    background: rgba(5,10,26,0.92);
+    backdrop-filter: blur(4px);
   }
+
+
 </style>
 </head>
 <body>
 
-<header>
-  <h1>The Star of Bethlehem</h1>
-  <p>Celestial Events 3 BC &ndash; 1 BC</p>
-</header>
+<div id="main-layout">
+  <div id="left-col">
+    <div id="sky-wrap">
+      <canvas id="sky" width="900" height="500"></canvas>
+      <div id="legend">
+        <div class="leg"><div class="leg-dot" style="background:#ffd700;box-shadow:0 0 6px #ffd700"></div> Jupiter</div>
+        <div class="leg"><div class="leg-dot" style="background:#ff9adc;box-shadow:0 0 6px #ff9adc"></div> Venus</div>
+        <div class="leg"><div class="leg-dot" style="background:#a0c8ff;box-shadow:0 0 6px #a0c8ff"></div> Mercury</div>
+        <div class="leg"><div class="leg-dot" style="background:#ff6644;box-shadow:0 0 6px #ff6644"></div> Mars</div>
+        <div class="leg"><div class="leg-dot" style="background:#ffe080;box-shadow:0 0 10px #ffe080;width:16px;height:16px"></div> Sun</div>
+        <div class="leg"><div class="leg-dot" style="background:#c8d8f0;border-radius:50% 50% 50% 50% / 60% 60% 40% 40%"></div> Moon</div>
+        <div class="leg"><div class="leg-dot" style="width:18px;height:3px;border-radius:1px;background:#44dd66"></div> Ecliptic</div>
+      </div>
+    </div>
 
-<div id="sky-wrap">
-  <canvas id="sky" width="900" height="500"></canvas>
-</div>
+    <div id="controls">
+      <button id="btn-play">&#9654; PLAY</button>
+      <label>DATE</label>
+      <input type="range" id="timeline" min="200" max="737" value="209">
+      <div id="speed-wrap">
+        <label>SPEED</label>
+        <input type="range" id="speed" min="1" max="10" value="3">
+      </div>
+    </div>
 
-<div id="controls">
-  <button id="btn-play">&#9654; PLAY</button>
-  <label>DATE</label>
-  <input type="range" id="timeline" min="200" max="760" value="209">
-  <div id="speed-wrap">
-    <label>SPEED</label>
-    <input type="range" id="speed" min="1" max="10" value="3">
+    <div id="toggle-panel">
+      <button class="tog-btn tog-ecliptic active" data-key="ecliptic"><span class="dot"></span>Ecliptic</button>
+      <button class="tog-btn tog-lines active" data-key="lines"><span class="dot"></span>Lines</button>
+      <button class="tog-btn tog-labels active" data-key="labels"><span class="dot"></span>Labels</button>
+      <div class="tog-sep"></div>
+      <button class="tog-btn tog-sun active" data-key="sun"><span class="dot"></span>Sun</button>
+      <button class="tog-btn tog-moon active" data-key="moon"><span class="dot"></span>Moon</button>
+      <button class="tog-btn tog-planets active" data-key="planets"><span class="dot"></span>Planets</button>
+    </div>
+
+    <div id="event-panel">
+      <div class="event-card" id="ev-card">
+        <div class="event-date" id="ev-date">&mdash;</div>
+        <div class="event-title" id="ev-title">&mdash;</div>
+        <div class="event-desc" id="ev-desc">Drag the slider or press Play to begin</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="right-sidebar">
+    <h2>Events</h2>
+    <div id="event-list"></div>
   </div>
 </div>
-
-<div id="toggle-panel">
-  <button class="tog-btn tog-ecliptic active" data-key="ecliptic"><span class="dot"></span>Ecliptic</button>
-  <button class="tog-btn tog-lines active" data-key="lines"><span class="dot"></span>Lines</button>
-  <button class="tog-btn tog-labels active" data-key="labels"><span class="dot"></span>Labels</button>
-  <div class="tog-sep"></div>
-  <button class="tog-btn tog-sun active" data-key="sun"><span class="dot"></span>Sun</button>
-  <button class="tog-btn tog-moon active" data-key="moon"><span class="dot"></span>Moon</button>
-  <button class="tog-btn tog-planets active" data-key="planets"><span class="dot"></span>Planets</button>
-</div>
-
-<div id="event-panel">
-  <div class="event-card" id="ev-card">
-    <div class="event-date" id="ev-date">&mdash;</div>
-    <div class="event-title" id="ev-title">&mdash;</div>
-    <div class="event-desc" id="ev-desc">Drag the slider or press Play to begin</div>
-  </div>
-</div>
-
-<div id="legend">
-  <div class="leg"><div class="leg-dot" style="background:#ffd700;box-shadow:0 0 6px #ffd700"></div> Jupiter</div>
-  <div class="leg"><div class="leg-dot" style="background:#ff9adc;box-shadow:0 0 6px #ff9adc"></div> Venus</div>
-  <div class="leg"><div class="leg-dot" style="background:#a0c8ff;box-shadow:0 0 6px #a0c8ff"></div> Mercury</div>
-  <div class="leg"><div class="leg-dot" style="background:#ff6644;box-shadow:0 0 6px #ff6644"></div> Mars</div>
-  <div class="leg"><div class="leg-dot" style="background:#ffe080;box-shadow:0 0 10px #ffe080;width:16px;height:16px"></div> Sun</div>
-  <div class="leg"><div class="leg-dot" style="background:#c8d8f0;border-radius:50% 50% 50% 50% / 60% 60% 40% 40%"></div> Moon</div>
-  <div class="leg"><div class="leg-dot" style="width:18px;height:3px;border-radius:1px;background:#44dd66"></div> Ecliptic</div>
-</div>
-
-<div id="event-list"></div>
 
 <footer>All dates are proleptic Gregorian. Celestial positions calculated from the NASA JPL DE422 ephemeris.</footer>
 
@@ -361,38 +409,38 @@ document.querySelectorAll('.tog-btn').forEach(btn => {
 // ═══════════════════════════════════════════════
 // t = day index: 0 = 1 Jan 3 BC, 365 = 1 Jan 2 BC
 const EVENTS = [
-  { t:209, date:"26 Jul 3 BC \u2014 before sunrise", title:"\u{1F315} Heliacal Rising of Jupiter",
+  { t:206, date:"26 Jul 3 BC \u2014 before sunrise", title:"\u{1F315} 1st Heliacal Rising of Jupiter",
     desc:"On a full moon, Jupiter emerges from behind the Sun and becomes visible for the first time before dawn \u2014 its heliacal rising. The Magi allude to the heliacal rising in Matthew 2:2, saying \u201cwe saw his star at its rising (ἐν τῇ ἀνατολῇ).\u201d When Herod asks for \u201cthe exact time the star had appeared\u201d (Matthew 2:7), the Magi give him this date. About one year and four months elapse between the heliacal rising and the Magi's visit to the Holy Family. Herod rounds this figure up to two years when he orders the Slaughter of the Innocents, in order to ensure he eliminates the Christ child (Matthew 2:16).",
     highlight:["jupiter"] },
-  { t:221, date:"10 Aug 3 BC \u2014 before sunrise", title:"\u{1F317} Jupiter\u2013Venus Conjunction",
-    desc:"Jupiter and Venus converge to within 4.3 arcminutes in the morning sky in Leo \u2014 nearly appearing as a single object to the naked eye. At closest approach (~08:00 local time) both planets stand 50\u00b0 above the eastern horizon. This is the first time an approach of less than 5 arcminutes had been seen in several centuries.",
+  { t:221, date:"10 Aug 3 BC \u2014 before sunrise", title:"\u{1F312} Jupiter\u2013Venus Conjunction",
+    desc:"On the first day of the lunar month of Elul, Jupiter and Venus converge to within 4.3 arcminutes in the morning sky, in the constellation of Leo. They are so close that they nearly appear as a single object to the naked eye. This is the first time an approach of less than 5 arcminutes had been seen in several centuries.",
     highlight:["jupiter","venus"] },
   { t:251, date:"9 Sep 3 BC \u2014 after sunset", title:"\u{1F312} Virgo Clothed with the Sun: 1st Day of Rosh Hashanah",
     desc:"John says \u201cA great sign appeared in heaven: a woman clothed with the sun, with the moon under her feet and a crown of twelve stars on her head\u201d (Rev. 12:1). This sign appeared on 9 Sept 3 BC, when the Sun clothed the body of Virgo, and the crescent New Moon rested just beneath her feet, ~90 min after sunset. It was 1 Tishrei on the Jewish calendar, the first day of the Rosh Hashanah new year festival, also known as the Day of Trumpets.",
     highlight:["sun","moon","virgo"] },
-  { t:253, date:"11 Sep 3 BC \u2014 before sunset", title:"\u{1F312} Jupiter\u2013Regulus Conjunction: 2nd Day of Rosh Hashanah",
+  { t:253, date:"11 Sep 3 BC \u2014 before sunset", title:"\u{1F312} 1st Jupiter\u2013Regulus Conjunction: 2nd Day of Rosh Hashanah",
     desc:"Jupiter makes its first conjunction with Regulus. This star has been associated with kings for at least three thousand years. The ancient Greek astronomer Geminus of Rhodes records that this star was called Basiliskos (\u201clittle king\u201d) in the 1st century before Christ, and the Babylonian text MUL.APIN calls this star Lugal (\u201cKing\u201d) around 1000 BC. The closest approach between Jupiter (king planet) and Regulus (king star) occurs at 5:01 P.M. Jerusalem solar time, just before sunset on the second day of Rosh Hashanah (2 Tishrei).",
     highlight:["jupiter","regulus"] },
   { t:327.6, date:"24 Nov 3 BC \u2014 10:59 p.m.", title:"\u{1F316} 1st Occultation of Regulus \u2014 Jupiter's 1st Station",
     desc:"At 10:59 p.m. local solar time, the Moon passes directly in front of Regulus \u2014 the King Star \u2014 completely hiding it for about an hour before the star reappears at the Moon\u2019s opposite limb at 12:04 a.m. An occultation of Regulus by the Moon was among the most significant portents in Babylonian astrology. This event takes place on the same night Jupiter begins its retrograde loop back toward Regulus, making it one of the most astronomically remarkable nights of the entire 3\u20132 BC period.",
     highlight:["moon","regulus"] },
-  { t:382.35, date:"18 Jan 2 BC \u2014 6:21 p.m.", title:"\u{1F315} 2nd Occultation of Regulus \u2014 Jupiter's Acronycal Rising",
+  { t:382.4, date:"18 Jan 2 BC \u2014 6:21 p.m.", title:"\u{1F315} 2nd Occultation of Regulus \u2014 Jupiter's Acronycal Rising",
     desc:"The full moon occults Regulus a second time, this time from 6:21 p.m. to 7:06 p.m. local solar time. This occultation occurs on the same night that Jupiter rises just after sunset (its acronycal rising).",
     highlight:["moon","regulus"] },
   { t:411, date:"16 Feb 2 BC", title:"\u{1F315} 2nd Jupiter\u2013Regulus Conjunction",
     desc:"On a full moon, Jupiter enters retrograde and starts looping back to Regulus a second time. For three nights prior to this, Jupiter and Regulus are within 22 degrees of the Moon, which is nearly full. This makes it plausible that an ice crystal halo formed around the Moon on at least one of these winter nights, encircling both objects. An ancient Babylonian astrological text states: \u201cWhen a halo surrounds the Moon and Regulus stands within it, women will bear male children\u201d (Thompson, no. 97).",
     highlight:["jupiter","regulus"] },
   { t:490, date:"6 May 2 BC", title:"\u{1F312} 3rd Jupiter\u2013Regulus Conjunction",
-    desc:"Jupiter resumes direct motion and passes Regulus a third time \u2014 a triple crowning of the King Star. Separation: 46\u2032.",
+    desc:"Jupiter passes Regulus a third time, at a separation of 46 arcminutes. The next night, the Moon stands just 1.2 degrees away from Regulus and 2 degrees from Jupiter.",
     highlight:["jupiter","regulus"] },
-  { t:530, date:"15 Jun 2 BC", title:"\u{1F315} Jupiter and Venus Merge",
+  { t:530, date:"15 Jun 2 BC \u2014 after sunset", title:"\u{1F315} Jupiter and Venus Merge",
     desc:"On a full moon, Jupiter and Venus merge in Leo with a separation of only 35 seconds of arc, appearing as a single brilliant star for over two hours. The moon is visible on the eastern horizon during the conjunction.",
     highlight:["jupiter","venus"] },
-  { t:723, date:"25 Dec 2 BC", title:"\u2605 Jupiter Stands Still over Bethlehem",
-    desc:"Jupiter reaches its stationary point in the southern sky as seen from Jerusalem \u2014 appearing to \u2018stand still\u2019 over Bethlehem. The Magi visited the Holy Family on this date, give or take a couple of days.",
+  { t:603, date:"27 Aug 2 BC \u2014 before sunrise", title:"\u{1F311} 2nd Heliacal Rising of Jupiter",
+    desc:"On a new moon, Jupiter emerges from behind the Sun for the second time, becoming visible before dawn. That morning, Venus rises above the horizon at virtually the same time. The Magi see Jupiter in the eastern sky on this date, and they observe it each morning thereafter, watching it move southward until it stands over Bethlehem in December (cf. Matthew 2:9).",
     highlight:["jupiter"] },
-  { t:737, date:"8 Jan 1 BC \u2014 12:42\u20132:20 a.m.", title:"\u{1F311} Total Lunar Eclipse \u2014 Herod Falls Ill",
-    desc:"A total lunar eclipse visible across Judea. Josephus records that Herod the Great fell ill after an eclipse of the moon, and died before Passover (Antiquities 17.6.4). Andrew Steinmann and other scholars argue that this is the eclipse of 8 January 1 BC, just two weeks after the Magi visit the Holy Family. Josephus tells us that Herod left Jerusalem to get medical treatment after the eclipse, so the Slaughter of the Innocents probably happened before then, in the first week of January.",
+  { t:737, date:"8 Jan 1 BC \u2014 12:42\u20132:20 a.m.", title:"\u{1F315} Lunar Eclipse \u2014 Herod Falls Ill",
+    desc:"A total lunar eclipse visible across Judea. Josephus records that Herod the Great fell ill after an eclipse of the moon, and died before Passover (Antiquities 17.6.4). Andrew Steinmann and other scholars have shown that this must be the eclipse of 8 January 1 BC.",
     highlight:["moon"] }
 ];
 
@@ -895,8 +943,8 @@ function render(t){
   // Date overlay
   const dateStr=currentDate(t);
   if(dateStr){
-    ctx.save();ctx.fillStyle='rgba(240,192,96,0.5)';ctx.font='600 11px Cinzel, serif';
-    ctx.textAlign='right';ctx.fillText(dateStr,W-14,22);ctx.textAlign='left';ctx.restore();
+    ctx.save();ctx.fillStyle='rgba(240,192,96,0.92)';ctx.font='600 16px Cinzel, serif';
+    ctx.textAlign='right';ctx.fillText(dateStr,W-16,28);ctx.textAlign='left';ctx.restore();
   }
 }
 
@@ -908,6 +956,7 @@ const btnPlay=document.getElementById('btn-play');
 const speedSlider=document.getElementById('speed');
 
 let currentT=0,playing=false,animId=null,lastTime=null;
+let pauseUntil=null,lastPausedEventT=null;
 
 function updatePanel(t){
   const ev=getEventAtT(t);if(!ev)return;
@@ -915,14 +964,14 @@ function updatePanel(t){
   document.getElementById('ev-title').textContent=ev.title;
   document.getElementById('ev-desc').textContent=ev.desc;
   document.querySelectorAll('.ev-item').forEach(el=>{
-    el.classList.toggle('active',parseInt(el.dataset.t)===ev.t);
+    el.classList.toggle('active',parseFloat(el.dataset.t)===ev.t);
   });
 }
 
 function setT(t){
-  currentT=clamp(t,200,760);
+  currentT=clamp(t,200,737);
   slider.value=currentT;
-  slider.style.setProperty('--pct',((currentT-200)/(760-200)*100)+'%');
+  slider.style.setProperty('--pct',((currentT-200)/(737-200)*100)+'%');
   updatePanel(currentT);
   render(currentT);
 }
@@ -931,15 +980,34 @@ function loop(ts){
   if(!playing)return;
   if(!lastTime)lastTime=ts;
   const dt=ts-lastTime;lastTime=ts;
+
+  // honour event pause
+  if(pauseUntil!==null){
+    if(ts<pauseUntil){animId=requestAnimationFrame(loop);return;}
+    pauseUntil=null;lastTime=ts; // reset so resume doesn't jump
+  }
+
   currentT+=dt*parseInt(speedSlider.value)*0.015; // ~1 day/frame at speed 1
-  if(currentT>760){currentT=760;playing=false;btnPlay.textContent='\u25B6 PLAY';lastTime=null;}
+  if(currentT>737){currentT=737;playing=false;btnPlay.textContent='\u25B6 PLAY';lastTime=null;}
+
+  // pause 1.5 s on named events we haven't paused at yet; snap to exact event t
+  if(playing){
+    const ev=getEventAtT(currentT);
+    if(ev && ev.t!==lastPausedEventT){
+      lastPausedEventT=ev.t;
+      currentT=ev.t;
+      pauseUntil=ts+1500;
+    }
+  }
+
   setT(currentT);
+
   if(playing)animId=requestAnimationFrame(loop);
 }
 
 btnPlay.addEventListener('click',()=>{
   if(playing){playing=false;btnPlay.textContent='\u25B6 PLAY';lastTime=null;cancelAnimationFrame(animId);}
-  else{if(currentT>=760)setT(200);playing=true;btnPlay.textContent='\u23F8 PAUSE';lastTime=null;animId=requestAnimationFrame(loop);}
+  else{if(currentT>=737)setT(200);playing=true;btnPlay.textContent='\u23F8 PAUSE';lastTime=null;pauseUntil=null;lastPausedEventT=null;animId=requestAnimationFrame(loop);}
 });
 
 slider.addEventListener('input',()=>setT(parseInt(slider.value)));
