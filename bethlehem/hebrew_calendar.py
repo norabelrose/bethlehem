@@ -77,6 +77,7 @@ LOCATIONS = {
     "jerusalem": ("Jerusalem", 31.7683, 35.2137),
     "avaris": ("Avaris (Tell el-Dabʿa)", 30.787, 31.823),
     "babylon": ("Babylon", 32.5364, 44.4208),
+    "rome": ("Rome", 41.9028, 12.4964),
 }
 
 MONTHS_GR = [
